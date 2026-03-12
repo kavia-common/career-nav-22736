@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
 /**
- * Career Roadmap (Page 7)
+ * Career Roadmap (top-level route)
  *
- * Temporary redirect to the existing MVP implementation.
+ * Keep /roadmap stable for navigation; the implementation lives under /journey/roadmap.
  */
 export default function RoadmapPage() {
   redirect("/journey/roadmap");

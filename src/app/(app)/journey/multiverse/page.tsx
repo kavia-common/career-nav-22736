@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -72,21 +73,11 @@ function useLocalStorageSet(key: string, initial: string[]) {
   return [setValue, setSetValue] as const;
 }
 
-function IconStar({ filled }: { filled: boolean }) {
+function IconCart({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={cn("h-4 w-4 transition-colors", filled ? "text-amber-500" : "text-zinc-400 group-hover:text-amber-500")}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11.48 3.5c.2-.54.84-.54 1.04 0l2.22 6.05a.6.6 0 0 0 .5.39l6.37.31c.57.03.8.74.36 1.1l-5 4.15a.6.6 0 0 0-.2.58l1.71 6.24c.15.56-.43 1.02-.93.7l-5.45-3.55a.6.6 0 0 0-.66 0l-5.45 3.55c-.5.32-1.08-.14-.93-.7l1.71-6.24a.6.6 0 0 0-.2-.58l-5-4.15c-.44-.36-.21-1.07.36-1.1l6.37-.31a.6.6 0 0 0 .5-.39L11.48 3.5z"
-      />
+    <svg viewBox="0 0 24 24" className={cn("h-5 w-5", className)} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 5.5h2l1.2 9.4a2 2 0 0 0 2 1.8h8.9a2 2 0 0 0 2-1.6l1.2-6.6H7.2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 20a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm9 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z" />
     </svg>
   );
 }
@@ -120,9 +111,24 @@ function ProgressRing({ value }: { value: number }) {
   );
 }
 
+function safeParseStringArray(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(String).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+const ROLE_CART_KEY = "cn_role_cart_ids_v1";
+
 // PUBLIC_INTERFACE
 export default function MultiverseStepPage() {
-  /** Career Multiverse Explorer: structured branching map with per-path spacing, expand/collapse, and zoom/pan controls. */
+  /** Career Multiverse Explorer: structured branching map with filters, role intelligence, and a role cart that proceeds to Roadmap. */
+
+  const router = useRouter();
 
   // Placeholder persona/current role until wired to backend/persona state.
   const currentRoleTitle = "Tech Lead";
@@ -307,8 +313,7 @@ export default function MultiverseStepPage() {
 
   /**
    * selectedId is the single source of truth.
-   * Derive selectedRole from selectedId + allNodes to avoid stale or partially-updated
-   * UI (especially under React concurrent rendering).
+   * Derive selectedRole from selectedId + allNodes to avoid stale or partially-updated UI.
    */
   const selectedRole = React.useMemo(() => {
     if (!selectedId) return null;
@@ -323,19 +328,9 @@ export default function MultiverseStepPage() {
     setSelectedId((prevId) => (prevId === id ? null : id));
   }, []);
 
-  /**
-   * Key the detail container by selectedId so any entrance animation / layout state
-   * cannot accidentally leave content visually "stuck" (e.g., opacity/transform)
-   * across rapid selection changes.
-   */
   const detailAnimKey = selectedId ?? "empty";
 
   const getRoleDescription = React.useCallback((node: MultiverseNode) => {
-    /**
-     * Normalize description fields so the Role Intelligence panel always renders
-     * a useful summary, even if upstream data uses different field names or
-     * provides an empty description.
-     */
     const n: any = node;
 
     const candidates = [n.description, n.roleDescription, n.role_description, n.overview, n.summary, n.roleSummary]
@@ -344,19 +339,10 @@ export default function MultiverseStepPage() {
 
     if (candidates.length > 0) return candidates[0];
 
-    // Final fallback: generate a short, consistent description from known fields.
     return `${node.title} role in ${node.industry}. Typical focus areas include ${node.requiredSkills.slice(0, 3).join(", ")}.`;
   }, []);
 
   const deriveThreeTwoFit = React.useCallback((node: MultiverseNode) => {
-    /**
-     * Simple heuristic implementation:
-     * - Mastery areas: first 3 required skills
-     * - Growth areas: first 2 skill gaps (fallback to remaining required skills)
-     * - 3/2 score uses a mastery-weighted blend to reflect "strong core + some stretch".
-     *
-     * This is a UX-oriented placeholder until persona-skill evidence is wired in.
-     */
     const mastery = node.requiredSkills.slice(0, 3);
     const growth = node.skillGaps.length > 0 ? node.skillGaps.slice(0, 2) : node.requiredSkills.slice(3, 5);
 
@@ -367,27 +353,12 @@ export default function MultiverseStepPage() {
     return { mastery, growth, score: Math.max(0, Math.min(100, score)) };
   }, []);
 
-  const classifySkills = React.useCallback((node: MultiverseNode) => {
-    /**
-     * Skill classification until persona evidence exists:
-     * - masterySkills: requiredSkills not in skillGaps (and top 4 max to keep UI clean)
-     * - growthSkills: skillGaps
-     */
-    const gaps = new Set(node.skillGaps.map((s) => s.toLowerCase()));
-    const masterySkills = node.requiredSkills.filter((s) => !gaps.has(s.toLowerCase())).slice(0, 6);
-    const growthSkills = node.skillGaps.slice(0, 6);
-    return { masterySkills, growthSkills };
-  }, []);
-
   const computeGapEffort = React.useCallback((node: MultiverseNode) => {
     const gapCount = node.skillGaps.length;
     const effort = gapCount >= 4 ? "High" : gapCount >= 2 ? "Medium" : "Low";
-    // Keep the estimate aligned to the node’s declared transition time; supplement if missing.
     const estimatedTime = node.transitionTime || (effort === "High" ? "18–36 months" : effort === "Medium" ? "12–24 months" : "6–12 months");
     return { effort, estimatedTime };
   }, []);
-
-  // Bookmarks removed from the Multiverse Explorer per updated spec (Role Intelligence panel only).
 
   const filteredNodes = React.useMemo(() => {
     return allNodes.filter((n) => isNodeInFilters(n, filters));
@@ -419,9 +390,49 @@ export default function MultiverseStepPage() {
     });
   };
 
-
-
   const showEmptyState = filteredNodes.length < 3;
+
+  // ---- Role cart ----
+  const [roleCartIds, setRoleCartIds] = useLocalStorageSet(ROLE_CART_KEY, []);
+
+  const roleCart = React.useMemo(() => {
+    const byId = new Map(allNodes.map((n) => [n.id, n]));
+    return [...roleCartIds].map((id) => byId.get(id)).filter(Boolean) as MultiverseNode[];
+  }, [allNodes, roleCartIds]);
+
+  const isSelectedInCart = selectedRole ? roleCartIds.has(selectedRole.id) : false;
+
+  const addSelectedToCart = React.useCallback(() => {
+    if (!selectedRole) return;
+    setRoleCartIds((prev) => {
+      const next = new Set(prev);
+      next.add(selectedRole.id);
+      return next;
+    });
+  }, [selectedRole, setRoleCartIds]);
+
+  const removeFromCart = React.useCallback(
+    (id: string) => {
+      setRoleCartIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    },
+    [setRoleCartIds]
+  );
+
+  const clearCart = React.useCallback(() => {
+    setRoleCartIds(new Set());
+  }, [setRoleCartIds]);
+
+  const proceedToRoadmap = React.useCallback(() => {
+    /**
+     * Persisted cart is already in localStorage; route to Roadmap.
+     * Roadmap reads cn_role_cart_ids_v1 to initialize its Mind Map / Pathway context.
+     */
+    router.push("/roadmap");
+  }, [router]);
 
   return (
     <div className="relative">
@@ -439,16 +450,44 @@ export default function MultiverseStepPage() {
         titleClassName="cn-enter-up"
         subtitleClassName="cn-subtext-enter"
         actions={
-          <Link
-            href="/journey/destination"
-            className={cn(
-              "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium",
-              "bg-white text-zinc-900 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
-            )}
-          >
-            Continue
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Cart indicator */}
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("cn-role-cart");
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className={cn(
+                "relative inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold",
+                "bg-white text-zinc-900 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+              )}
+              aria-label={`Role cart: ${roleCart.length} selected`}
+            >
+              <IconCart />
+              <span className="hidden sm:inline">Role Cart</span>
+              <span
+                className={cn(
+                  "ml-1 inline-flex min-w-[22px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
+                  roleCart.length > 0 ? "bg-teal-600 text-white" : "bg-zinc-100 text-zinc-600 ring-1 ring-inset ring-zinc-200"
+                )}
+              >
+                {roleCart.length}
+              </span>
+            </button>
+
+            <Link
+              href="/journey/destination"
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium",
+                "bg-white text-zinc-900 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+              )}
+            >
+              Continue
+            </Link>
+          </div>
         }
       />
 
@@ -586,25 +625,9 @@ export default function MultiverseStepPage() {
               />
             </Card>
           )}
-
-          {/* Career Strategy Workspace CTA (per spec: bottom of Multiverse Explorer) */}
-          <div className="mt-4 flex justify-center">
-            <Link href="/journey/career-strategy" className="w-full max-w-md">
-              <span
-                className={cn(
-                  "cn-csw-cta inline-flex h-12 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white",
-                  "bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500",
-                  "transition-transform duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
-                )}
-              >
-                Start Career Strategy
-              </span>
-            </Link>
-          </div>
         </section>
 
-        {/* Role intelligence panel */}
+        {/* Role intelligence panel + Add-to-cart */}
         <aside className="lg:col-span-4">
           <div
             className={cn(
@@ -616,7 +639,7 @@ export default function MultiverseStepPage() {
             <Card
               className={cn("relative overflow-hidden", selectedRole && "cn-mv-panelEnter")}
               title="Role Intelligence"
-              description={selectedRole ? "Click different roles to compare your mastery, growth, and gaps." : "Click a role in the multiverse map to view detailed career insights."}
+              description={selectedRole ? "Add roles to your cart, then proceed to Roadmap." : "Click a role in the multiverse map to view detailed career insights."}
             >
               {!selectedRole ? (
                 <div className="rounded-xl bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-inset ring-zinc-200">
@@ -624,7 +647,7 @@ export default function MultiverseStepPage() {
                 </div>
               ) : (
                 <div key={detailAnimKey} className="space-y-4 cn-mv-panelEnter">
-                  {/* 1) Role Overview */}
+                  {/* Role Overview */}
                   <section className="rounded-xl bg-white p-4 ring-1 ring-inset ring-zinc-200">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -650,9 +673,45 @@ export default function MultiverseStepPage() {
                         </dd>
                       </div>
                     </dl>
+
+                    {/* Add-to-cart row */}
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2">
+                        <IconCart className="text-zinc-500" />
+                        <span className="text-xs font-semibold text-zinc-600">
+                          In cart: <span className="font-bold text-zinc-900 tabular-nums">{roleCart.length}</span>
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={isSelectedInCart ? "secondary" : "primary"}
+                          onClick={() => {
+                            if (!selectedRole) return;
+                            if (roleCartIds.has(selectedRole.id)) {
+                              removeFromCart(selectedRole.id);
+                            } else {
+                              addSelectedToCart();
+                            }
+                          }}
+                        >
+                          {isSelectedInCart ? "Remove from cart" : "Add to cart"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedId(null);
+                          }}
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
                   </section>
 
-                  {/* 2) Role Description */}
+                  {/* Role Description */}
                   <section className="rounded-xl bg-zinc-50 p-4 ring-1 ring-inset ring-zinc-200">
                     <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-600">Role Description</h3>
                     <p className="mt-2 text-sm text-zinc-700">{getRoleDescription(selectedRole)}</p>
@@ -661,7 +720,7 @@ export default function MultiverseStepPage() {
                     </p>
                   </section>
 
-                  {/* 3) 3/2 Career Fit Analysis */}
+                  {/* 3/2 Career Fit Analysis */}
                   {(() => {
                     const fit = deriveThreeTwoFit(selectedRole);
                     return (
@@ -683,11 +742,10 @@ export default function MultiverseStepPage() {
                         <div className="mt-3">
                           <p className="text-xs font-semibold text-zinc-700">Mastery Areas</p>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {fit.mastery.map((s, i) => (
+                            {fit.mastery.map((s) => (
                               <span
                                 key={s}
-                                className="cn-mv-tag cn-mv-tag--mastery"
-                                style={{ ["--cn-mv-stagger" as any]: `${i * 55}ms` } as React.CSSProperties}
+                                className="rounded-full bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800 ring-1 ring-inset ring-teal-200"
                                 title="Mastery → strong skill from your experience."
                               >
                                 {s}
@@ -699,11 +757,10 @@ export default function MultiverseStepPage() {
                         <div className="mt-3">
                           <p className="text-xs font-semibold text-zinc-700">Growth Areas</p>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {fit.growth.map((s, i) => (
+                            {fit.growth.map((s) => (
                               <span
                                 key={s}
-                                className="cn-mv-tag cn-mv-tag--growth"
-                                style={{ ["--cn-mv-stagger" as any]: `${(fit.mastery.length + i) * 55}ms` } as React.CSSProperties}
+                                className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-200"
                                 title="Growth → skill needed for this role."
                               >
                                 {s}
@@ -715,7 +772,7 @@ export default function MultiverseStepPage() {
                     );
                   })()}
 
-                  {/* 4) Gap Analysis */}
+                  {/* Gap Analysis */}
                   {(() => {
                     const effort = computeGapEffort(selectedRole);
                     return (
@@ -744,12 +801,8 @@ export default function MultiverseStepPage() {
                               No major gaps detected (placeholder).
                             </div>
                           ) : (
-                            selectedRole.skillGaps.map((g, i) => (
-                              <div
-                                key={g}
-                                className="cn-mv-gapCard rounded-xl bg-zinc-50 p-3 ring-1 ring-inset ring-zinc-200"
-                                style={{ ["--cn-mv-stagger" as any]: `${i * 60}ms` } as React.CSSProperties}
-                              >
+                            selectedRole.skillGaps.map((g) => (
+                              <div key={g} className="rounded-xl bg-zinc-50 p-3 ring-1 ring-inset ring-zinc-200">
                                 <div className="flex items-start gap-2">
                                   <span className="mt-1 inline-block h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.35)]" aria-hidden="true" />
                                   <div className="min-w-0">
@@ -771,20 +824,80 @@ export default function MultiverseStepPage() {
                       </section>
                     );
                   })()}
-
-                  <div className="pt-2">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedId(null);
-                      }}
-                    >
-                      Close panel
-                    </Button>
-                  </div>
                 </div>
               )}
             </Card>
+
+            {/* Role cart panel */}
+            <div id="cn-role-cart" className="mt-3">
+              <Card
+                title={
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Role Cart</span>
+                    <span className={cn("inline-flex items-center gap-2 text-xs font-semibold text-zinc-600")}>
+                      <IconCart className="h-4 w-4" />
+                      <span className="tabular-nums">{roleCart.length}</span>
+                    </span>
+                  </div>
+                }
+                description="Add roles from Role Intelligence, then proceed to your Roadmap."
+              >
+                {roleCart.length === 0 ? (
+                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700 ring-1 ring-inset ring-zinc-200">
+                    No roles added yet. Select a role and click “Add to cart”.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {roleCart.map((r) => (
+                      <div key={r.id} className="flex items-start justify-between gap-3 rounded-xl bg-white p-3 ring-1 ring-inset ring-zinc-200">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-zinc-900">{r.title}</div>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-zinc-600">
+                            <span className="font-semibold">{r.industry}</span>
+                            <span className="text-zinc-300">•</span>
+                            <span className="inline-flex items-center gap-1">
+                              <ProgressRing value={r.compatibility} />
+                              <span className="font-semibold tabular-nums">{r.compatibility}%</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          <Button size="sm" variant="ghost" onClick={() => removeFromCart(r.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    variant="secondary"
+                    onClick={clearCart}
+                    disabled={roleCart.length === 0}
+                  >
+                    Clear cart
+                  </Button>
+
+                  <Button
+                    className="cn-mv-btnGlow"
+                    onClick={proceedToRoadmap}
+                    disabled={roleCart.length === 0}
+                    rightIcon={<span aria-hidden="true">→</span>}
+                  >
+                    Proceed to Roadmap
+                  </Button>
+                </div>
+
+                {roleCart.length === 0 && (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Tip: you can add multiple roles and compare them in Roadmap.
+                  </p>
+                )}
+              </Card>
+            </div>
           </div>
         </aside>
       </div>
