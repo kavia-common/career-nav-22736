@@ -734,7 +734,10 @@ function MindMapCanvas(props: {
   const [size, setSize] = React.useState({ w: 920, h: 560 });
 
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
-  const [activeId, setActiveId] = React.useState<string>("mm_role");
+
+  // No node should be selected by default. The details panel must only appear after a click.
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+
   const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
 
   React.useEffect(() => {
@@ -759,7 +762,9 @@ function MindMapCanvas(props: {
   );
 
   const hoveredNode = hoveredId ? nodes.find((n) => n.id === hoveredId) ?? null : null;
-  const activeNode = nodes.find((n) => n.id === activeId) ?? nodes[0];
+
+  // Active node is "pinned" by click. Null means "no selection" (panel hidden).
+  const activeNode = activeId ? nodes.find((n) => n.id === activeId) ?? null : null;
 
   // Highlight: when hovering a node, brighten edges connected to it (and its immediate neighborhood).
   const highlightSet = React.useMemo(() => {
@@ -883,8 +888,8 @@ function MindMapCanvas(props: {
         <MindMapTooltip x={cursor.x} y={cursor.y} title={hoveredNode.meta?.title ?? hoveredNode.label} subtitle={hoveredNode.meta?.description} />
       )}
 
-      {/* pinned side card for clicked node */}
-      {activeNode && <MindMapSideCard node={activeNode} onClose={() => setActiveId("mm_role")} />}
+      {/* pinned side card for clicked node (only after click/select) */}
+      {activeNode && <MindMapSideCard node={activeNode} onClose={() => setActiveId(null)} />}
 
       {/* top controls bar (dark chips, minimal — matches reference layout) */}
       <div className="absolute left-4 top-4 z-[15] flex flex-wrap items-center gap-2">
