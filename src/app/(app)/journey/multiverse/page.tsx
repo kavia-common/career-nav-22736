@@ -699,53 +699,7 @@ export default function MultiverseStepPage() {
                     );
                   })()}
 
-                  {/* 4) Mastery vs Growth Skills */}
-                  {(() => {
-                    const cls = classifySkills(selectedRole);
-                    return (
-                      <section className="rounded-xl bg-zinc-50 p-4 ring-1 ring-inset ring-zinc-200">
-                        <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-600">Mastery vs Growth Skills</h3>
-
-                        <div className="mt-3">
-                          <p className="text-xs font-semibold text-zinc-700">Mastery Skills</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {cls.masterySkills.map((s, i) => (
-                              <span
-                                key={s}
-                                className="cn-mv-tag cn-mv-tag--mastery"
-                                style={{ ["--cn-mv-stagger" as any]: `${i * 45}ms` } as React.CSSProperties}
-                                title="Mastery → strong skill from your experience."
-                              >
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <p className="text-xs font-semibold text-zinc-700">Growth Skills</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {cls.growthSkills.length === 0 ? (
-                              <p className="text-sm text-zinc-700">No explicit growth skills detected for this role (placeholder).</p>
-                            ) : (
-                              cls.growthSkills.map((s, i) => (
-                                <span
-                                  key={s}
-                                  className="cn-mv-tag cn-mv-tag--growth"
-                                  style={{ ["--cn-mv-stagger" as any]: `${(cls.masterySkills.length + i) * 45}ms` } as React.CSSProperties}
-                                  title="Growth → skill needed for this role."
-                                >
-                                  {s}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </section>
-                    );
-                  })()}
-
-                  {/* 5) Gap Analysis */}
+                  {/* 4) Gap Analysis */}
                   {(() => {
                     const effort = computeGapEffort(selectedRole);
                     return (
