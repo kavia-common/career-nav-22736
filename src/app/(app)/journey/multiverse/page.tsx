@@ -586,6 +586,22 @@ export default function MultiverseStepPage() {
               />
             </Card>
           )}
+
+          {/* Career Strategy Workspace CTA (per spec: bottom of Multiverse Explorer) */}
+          <div className="mt-4 flex justify-center">
+            <Link href="/journey/career-strategy" className="w-full max-w-md">
+              <span
+                className={cn(
+                  "cn-csw-cta inline-flex h-12 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white",
+                  "bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500",
+                  "transition-transform duration-200",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+                )}
+              >
+                Start Career Strategy
+              </span>
+            </Link>
+          </div>
         </section>
 
         {/* Role intelligence panel */}
