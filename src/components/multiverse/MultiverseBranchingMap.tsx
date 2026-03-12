@@ -562,7 +562,14 @@ export function MultiverseBranchingMap(props: MultiverseBranchingMapProps) {
                       selected={selected}
                       hovered={hovered}
                       dimmed={dimmed}
-                      onHover={(v) => setHoveredId(v ? n.id : (prev) => (prev === n.id ? null : prev))}
+                      onHover={(v) => {
+                        // Keep hoveredId strictly typed as string|null.
+                        // When leaving, only clear if the node being left is still the hovered one.
+                        setHoveredId((prev) => {
+                          if (v) return n.id;
+                          return prev === n.id ? null : prev;
+                        });
+                      }}
                       onClick={() => onSelectNode(n.id)}
                     />
                   </div>
