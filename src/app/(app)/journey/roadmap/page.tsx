@@ -89,6 +89,339 @@ function StatusChip({ value }: { value: MilestoneStatus }) {
   return <span className={cn("rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset", cls)}>{value}</span>;
 }
 
+function milestoneProgress(m: Milestone) {
+  // Snapshot-friendly progress mapping used by Pathway timeline UI.
+  if (m.status === "Done") return 100;
+  if (m.status === "In progress") return 50;
+  return 0;
+}
+
+function milestoneClusterIndex(m: Milestone) {
+  // 0..2 (Foundation / Deepening / Portfolio)
+  const p = milestoneProgress(m);
+  if (p >= 100) return 0;
+  if (p > 0) return 1;
+  return 2;
+}
+
+function completionSummary(milestones: Milestone[]) {
+  const total = milestones.length;
+  const done = milestones.filter((m) => m.status === "Done").length;
+  const inProgress = milestones.filter((m) => m.status === "In progress").length;
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+  return { total, done, inProgress, percent };
+}
+
+function progressRingTone(percent: number) {
+  if (percent >= 75) return { track: "bg-teal-500/15", bar: "bg-teal-400" };
+  if (percent >= 40) return { track: "bg-amber-500/15", bar: "bg-amber-400" };
+  return { track: "bg-white/10", bar: "bg-white/25" };
+}
+
+function PathwayIcon({ kind, className }: { kind: "check" | "star" | "flag"; className?: string }) {
+  const cls = cn("h-4 w-4", className);
+  if (kind === "check") {
+    return (
+      <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
+        <path fill="currentColor" d="M9.0 16.2 4.8 12l-1.4 1.4 5.6 5.6L20.6 7.4 19.2 6z" />
+      </svg>
+    );
+  }
+  if (kind === "star") {
+    return (
+      <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M12 17.3 5.8 20.9l1.7-7.1L2 9.2l7.3-.6L12 2l2.7 6.6 7.3.6-5.5 4.6 1.7 7.1z"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
+      <path fill="currentColor" d="M6 3h12v2h-2v4.2l1.6 1.6-1.4 1.4L15 11V5H9v16H7V3Z" />
+    </svg>
+  );
+}
+
+function PathwayTimelineCard(props: {
+  planTitle: string;
+  milestones: Milestone[];
+  onToggleDone: (milestoneId: string, done: boolean) => void;
+  onUpdate: (milestoneId: string, patch: Partial<Milestone>) => void;
+  onDelete: (milestoneId: string) => void;
+  onAdd: () => void;
+}) {
+  const { planTitle, milestones, onToggleDone, onUpdate, onDelete, onAdd } = props;
+
+  const sorted = React.useMemo(() => [...milestones].sort((a, b) => a.date.localeCompare(b.date)), [milestones]);
+
+  // Group into 3 columns to match the screenshot intent (2 cards per column).
+  const grouped = React.useMemo(() => {
+    const columns: Milestone[][] = [[], [], []];
+    sorted.forEach((m) => {
+      columns[milestoneClusterIndex(m)].push(m);
+    });
+
+    // Keep screenshot-like balance: try to keep at most 2 per column by spilling.
+    const flattened = [...columns[0], ...columns[1], ...columns[2]];
+    const fixed: Milestone[][] = [[], [], []];
+    flattened.forEach((m) => {
+      const idx = fixed.reduce((best, col, i) => (col.length < fixed[best].length ? i : best), 0);
+      fixed[idx].push(m);
+    });
+
+    // Now re-assign by progress cluster priority, but cap to 2 cards per column visually.
+    // (We keep it simple: first 2 -> col1, next 2 -> col2, rest -> col3.)
+    const linear = [...sorted];
+    return [linear.slice(0, 2), linear.slice(2, 4), linear.slice(4)];
+  }, [sorted]);
+
+  const summary = React.useMemo(() => completionSummary(sorted), [sorted]);
+  const tone = progressRingTone(summary.percent);
+
+  // Header stage status: completed if there exists done milestones; current if any in progress; upcoming otherwise.
+  const stage1Done = summary.done > 0;
+  const stage2Current = !stage1Done && summary.inProgress > 0;
+
+  const stageStates: Array<{
+    title: string;
+    subtitle: string;
+    icon: "check" | "star" | "flag";
+    tone: "complete" | "current" | "upcoming";
+  }> = [
+    {
+      title: "Role-Specific Milestones",
+      subtitle: "Foundation Building",
+      icon: "check",
+      tone: stage1Done ? "complete" : "upcoming"
+    },
+    {
+      title: "Advanced Concepts",
+      subtitle: "Skill Deepening",
+      icon: "star",
+      tone: stage2Current ? "current" : summary.done > 0 ? "current" : "upcoming"
+    },
+    {
+      title: "Project Milestones",
+      subtitle: "Portfolio Creation",
+      icon: "flag",
+      tone: summary.done === summary.total && summary.total > 0 ? "complete" : "upcoming"
+    }
+  ];
+
+  const nodeTone = (t: (typeof stageStates)[number]["tone"]) => {
+    if (t === "complete") return "text-emerald-300";
+    if (t === "current") return "text-amber-300";
+    return "text-rose-300";
+  };
+
+  const dotTone = (idx: number) => {
+    // Decorative dot colors used inside mini-cards (blue/purple/orange-like), matching the notes.
+    if (idx % 3 === 0) return "bg-sky-400";
+    if (idx % 3 === 1) return "bg-violet-400";
+    return "bg-orange-400";
+  };
+
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)]",
+        "border-white/10 bg-gradient-to-b from-[#0b1b2b] to-[#07131f]"
+      )}
+      aria-label="Pathway timeline"
+    >
+      {/* Top row: header + progress pill (progress indicator placement) */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white/80">Pathway</div>
+          <div className="mt-1 truncate text-base font-bold text-white">Milestones for {planTitle}</div>
+          <div className="mt-1 text-xs font-medium text-white/55">
+            Check items complete to update progress. Edit titles/descriptions inline.
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 self-start rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-white/55">Progress</div>
+            <div className="mt-0.5 text-sm font-bold text-white tabular-nums">
+              {summary.percent}% <span className="text-xs font-semibold text-white/55">({summary.done}/{summary.total})</span>
+            </div>
+          </div>
+          <div className={cn("h-8 w-20 rounded-full p-1", tone.track)} aria-hidden="true">
+            <div className={cn("h-full rounded-full", tone.bar)} style={{ width: `${summary.percent}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Timeline header row (3 columns) */}
+      <div className="relative grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div
+          aria-hidden="true"
+          className="hidden sm:block"
+          style={{
+            position: "absolute",
+            left: 24,
+            right: 24,
+            top: 15,
+            height: 2,
+            background: "rgba(156, 179, 201, 0.18)"
+          }}
+        />
+
+        {stageStates.map((s) => (
+          <div key={s.title} className="relative flex flex-col items-center text-center">
+            <div
+              className={cn(
+                "z-[1] grid h-8 w-8 place-items-center rounded-full border",
+                "border-white/10 bg-[#0b2237]",
+                nodeTone(s.tone)
+              )}
+              aria-label={s.tone === "complete" ? "Completed stage" : s.tone === "current" ? "Current stage" : "Upcoming stage"}
+            >
+              <PathwayIcon kind={s.icon} />
+            </div>
+            <div className="mt-2 text-[13px] font-bold text-white/90">{s.title}</div>
+            <div className="mt-0.5 text-[11px] font-semibold text-white/55">{s.subtitle}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Milestone detail cards grid (3 columns) */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-3">
+        {grouped.flatMap((col, colIdx) =>
+          col.map((m, rowIdx) => {
+            const idx = colIdx * 2 + rowIdx;
+            const done = m.status === "Done";
+            const overdue = m.status !== "Done" && m.date < todayISO();
+
+            return (
+              <article
+                key={m.id}
+                className={cn(
+                  "rounded-xl border p-3",
+                  "border-white/10 bg-[#0b2237]",
+                  overdue ? "shadow-[0_0_0_1px_rgba(244,63,94,0.20)]" : "shadow-[0_0_0_1px_rgba(255,255,255,0.02)]"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2.5 w-2.5 rounded-full", dotTone(idx))} aria-hidden="true" />
+                      <input
+                        className={cn(
+                          "w-full bg-transparent text-[13px] font-semibold text-white/90",
+                          "outline-none placeholder:text-white/35"
+                        )}
+                        value={m.title}
+                        onChange={(e) => onUpdate(m.id, { title: e.target.value })}
+                        aria-label="Milestone title"
+                      />
+                    </div>
+
+                    <textarea
+                      className={cn(
+                        "mt-2 w-full resize-none bg-transparent text-[11px] font-medium leading-relaxed text-white/55",
+                        "outline-none placeholder:text-white/30"
+                      )}
+                      value={m.description}
+                      onChange={(e) => onUpdate(m.id, { description: e.target.value })}
+                      rows={2}
+                      placeholder="Describe what done looks like"
+                      aria-label="Milestone description"
+                    />
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <label className="flex items-center gap-2 text-[11px] font-semibold text-white/60">
+                      <input
+                        type="checkbox"
+                        checked={done}
+                        onChange={(e) => onToggleDone(m.id, e.target.checked)}
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-teal-400"
+                        aria-label="Mark milestone done"
+                      />
+                      Done
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => onDelete(m.id)}
+                      className="text-[11px] font-semibold text-white/45 hover:text-white/70"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold text-white/45">Due</div>
+                  <input
+                    type="date"
+                    className={cn(
+                      "rounded-lg border px-2 py-1 text-[11px] font-semibold",
+                      "border-white/10 bg-white/5 text-white/80",
+                      overdue ? "ring-1 ring-inset ring-rose-500/30" : "ring-0"
+                    )}
+                    value={m.date}
+                    onChange={(e) => onUpdate(m.id, { date: e.target.value })}
+                    aria-label="Milestone due date"
+                  />
+                </div>
+
+                {/* Keep status in sync with checkbox and allow manual override if desired */}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold text-white/45">Status</div>
+                  <select
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/80"
+                    value={m.status}
+                    onChange={(e) => onUpdate(m.id, { status: e.target.value as MilestoneStatus })}
+                    aria-label="Milestone status"
+                  >
+                    <option>Not started</option>
+                    <option>In progress</option>
+                    <option>Done</option>
+                  </select>
+                </div>
+              </article>
+            );
+          })
+        )}
+
+        {/* If there are fewer than 6 milestones, show subtle empty placeholders to preserve the screenshot-like grid rhythm */}
+        {Array.from({ length: Math.max(0, 6 - sorted.length) }).map((_, i) => (
+          <div
+            key={`ph_${i}`}
+            className="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-3 text-[11px] font-semibold text-white/40"
+          >
+            Add a milestone to fill this slot.
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom actions (CTA position matches screenshot) */}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Button size="sm" variant="secondary" onClick={onAdd}>
+          Add milestone
+        </Button>
+
+        <button
+          type="button"
+          onClick={() => alert("Switch Pathway (placeholder).")}
+          className={cn(
+            "inline-flex h-9 items-center justify-center rounded-xl px-4 text-xs font-bold",
+            "bg-[rgba(31,208,199,1)] text-[#06202A]",
+            "shadow-[0_12px_28px_rgba(31,208,199,0.18)]",
+            "transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+          )}
+        >
+          Switch Pathway
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function seedRolePlan(roleId: string): RolePlan {
   // Placeholder role metadata; in a real implementation, fetch role detail by id from backend.
   const fallbackTitle =
@@ -1185,107 +1518,21 @@ export default function RoadmapJourneyPage() {
                 />
               </Card>
             ) : (
-              <Card title={`Pathway — Milestones for ${activePlan.title}`} description="Create and track milestones over time. This is a lightweight editable timeline for your selected role.">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-zinc-700">
-                    Role: <span className="font-bold text-zinc-900">{activePlan.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="secondary" onClick={addMilestone}>
-                      Add milestone
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {[...activePlan.milestones]
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map((m, idx) => {
-                      const overdue = m.status !== "Done" && m.date < todayISO();
-                      return (
-                        <div key={m.id} className="relative rounded-2xl bg-white p-4 ring-1 ring-inset ring-zinc-200">
-                          {/* timeline line + dot */}
-                          <div className="absolute left-5 top-6 h-[calc(100%-24px)] w-px bg-zinc-200" aria-hidden="true" />
-                          <div
-                            className={cn(
-                              "absolute left-[17px] top-7 h-3 w-3 rounded-full",
-                              m.status === "Done"
-                                ? "bg-teal-600 shadow-[0_0_18px_rgba(20,184,166,0.22)]"
-                                : overdue
-                                  ? "bg-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.22)]"
-                                  : "bg-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.22)]"
-                            )}
-                            aria-hidden="true"
-                          />
-
-                          <div className="pl-8">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="min-w-0 flex-1">
-                                <input
-                                  className="w-full rounded-lg bg-zinc-50 px-3 py-2 text-sm font-bold text-zinc-900 ring-1 ring-inset ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-                                  value={m.title}
-                                  onChange={(e) => updateMilestone(m.id, { title: e.target.value })}
-                                  aria-label={`Milestone title ${idx + 1}`}
-                                />
-                                <textarea
-                                  className="mt-2 w-full rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-700 ring-1 ring-inset ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-                                  value={m.description}
-                                  onChange={(e) => updateMilestone(m.id, { description: e.target.value })}
-                                  rows={3}
-                                  placeholder="Describe what “done” looks like"
-                                />
-                              </div>
-
-                              <div className="shrink-0 sm:w-[220px]">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="text-xs font-semibold text-zinc-600">Date</div>
-                                  <input
-                                    type="date"
-                                    className={cn(
-                                      "rounded-xl px-3 py-2 text-sm font-semibold ring-1 ring-inset focus:outline-none focus:ring-2 focus:ring-teal-500/30",
-                                      overdue ? "bg-rose-50 text-rose-800 ring-rose-200" : "bg-white text-zinc-900 ring-zinc-200"
-                                    )}
-                                    value={m.date}
-                                    onChange={(e) => updateMilestone(m.id, { date: e.target.value })}
-                                  />
-                                </div>
-
-                                <div className="mt-2 flex items-center justify-between gap-2">
-                                  <div className="text-xs font-semibold text-zinc-600">Status</div>
-                                  <StatusChip value={m.status} />
-                                </div>
-
-                                <div className="mt-2">
-                                  <select
-                                    className="w-full rounded-xl bg-white px-3 py-2 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-                                    value={m.status}
-                                    onChange={(e) => updateMilestone(m.id, { status: e.target.value as MilestoneStatus })}
-                                    aria-label="Milestone status"
-                                  >
-                                    <option>Not started</option>
-                                    <option>In progress</option>
-                                    <option>Done</option>
-                                  </select>
-                                </div>
-
-                                <div className="mt-2 flex justify-end">
-                                  <Button size="sm" variant="ghost" onClick={() => deleteMilestone(m.id)}>
-                                    Delete
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {overdue && (
-                              <div className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-800 ring-1 ring-inset ring-rose-200">
-                                This milestone is overdue. Update the date or break it into smaller steps.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
+              <Card
+                title={`Pathway — ${activePlan.title}`}
+                description="A milestone pathway laid out in three stages, matching the reference timeline layout. Completion is tracked via checkbox/status."
+              >
+                <PathwayTimelineCard
+                  planTitle={activePlan.title}
+                  milestones={activePlan.milestones}
+                  onAdd={addMilestone}
+                  onUpdate={updateMilestone}
+                  onDelete={deleteMilestone}
+                  onToggleDone={(milestoneId, done) => {
+                    // Checkbox completion should keep existing progress updates (stored in milestones.status).
+                    updateMilestone(milestoneId, { status: done ? "Done" : "Not started" });
+                  }}
+                />
 
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <Button variant="secondary" onClick={() => setTab("mindMap")}>
