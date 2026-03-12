@@ -122,6 +122,7 @@ function NodeCircle({ node, selected, hovered, dimmed, onClick, onHover }: NodeC
     <div
       role="button"
       tabIndex={0}
+      data-mv-node="true"
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       onFocus={() => onHover(true)}
@@ -336,6 +337,13 @@ export function MultiverseBranchingMap(props: MultiverseBranchingMapProps) {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!viewportRef.current) return;
+
+    // If the pointer-down started on an interactive node, do NOT begin panning.
+    // Otherwise the viewport will capture the pointer and the node's click won't
+    // reliably fire, making selection/panel updates feel broken.
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.('[data-mv-node="true"]')) return;
+
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y };
   };
