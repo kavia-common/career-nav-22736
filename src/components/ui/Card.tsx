@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 
 export type CardProps = React.HTMLAttributes<HTMLDivElement> & {
-  title?: string;
+  title?: React.ReactNode;
   description?: string;
   actions?: React.ReactNode;
 };

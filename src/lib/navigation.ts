@@ -13,8 +13,6 @@ export type NavItem = {
  * → Draft Persona Review
  * → Skill Validation
  * → Multiverse Explorer
- * → Destination Selection
- * → Delta (Gap Analysis)
  * → Roadmap
  * → Marketplace
  */
@@ -29,8 +27,6 @@ export const PRIMARY_NAV: NavItem[] = [
 
   { label: "Skill Validation", href: "/skill-validation" },
   { label: "Multiverse Explorer", href: "/multiverse" },
-  { label: "Destination Selection", href: "/destination" },
-  { label: "Delta (Gap Analysis)", href: "/gap-analysis" },
   { label: "Roadmap", href: "/roadmap" },
   { label: "Marketplace", href: "/marketplace" }
 ];

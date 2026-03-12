@@ -478,14 +478,14 @@ export default function MultiverseStepPage() {
             </button>
 
             <Link
-              href="/journey/destination"
+              href="/roadmap"
               className={cn(
                 "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium",
                 "bg-white text-zinc-900 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
               )}
             >
-              Continue
+              Roadmap
             </Link>
           </div>
         }
