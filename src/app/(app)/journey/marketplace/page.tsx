@@ -553,9 +553,6 @@ export default function MarketplaceJourneyPage() {
             <Button variant="secondary">
               <Link href="/journey/roadmap">Back to Roadmap</Link>
             </Button>
-            <Button variant="ghost">
-              <Link href="/journey">Back to Journey</Link>
-            </Button>
           </div>
         }
       />
