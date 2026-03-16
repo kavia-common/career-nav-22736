@@ -1065,6 +1065,41 @@ body {
    ------------------------------ */
 
 /* ------------------------------
+   Marketplace: premium hover + load motion helpers
+   ------------------------------ */
+
+/* Section sequential reveal helper (JS toggles opacity/translate classes; this is additive) */
+.cn-mp-section {
+  position: relative;
+}
+
+/* Card hover glow (teal border + soft shadow). Duration aligns with spec (200–300ms). */
+.cn-mp-hoverGlow {
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+
+.cn-mp-hoverGlow:hover {
+  transform: translateY(-2px);
+  border-color: rgba(20, 184, 166, 0.28);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.14),
+    0 0 22px rgba(20, 184, 166, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cn-mp-hoverGlow {
+    transition: none !important;
+  }
+  .cn-mp-hoverGlow:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* ------------------------------
    Roadmap: micro-interactions helpers (used in /journey/roadmap)
    ------------------------------ */
 
