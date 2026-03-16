@@ -10,15 +10,15 @@ export type TopBarProps = {
  * PUBLIC_INTERFACE
  * Top bar for global controls.
  *
- * Updated to include:
- * - Brand logo mark + "Career Navigator" title on the left.
- * - Profile/avatar control on the right.
+ * Left-side brand (logo + text) removed per design request while keeping:
+ * - Mobile hamburger button on the left
+ * - Profile/avatar control on the right
  */
 export function TopBar({ onOpenSidebar }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 bg-teal-700 text-white shadow-sm">
       <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
-        {/* Left: hamburger (mobile) + brand */}
+        {/* Left: hamburger (mobile) */}
         <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
@@ -28,22 +28,6 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
           >
             <span className="text-lg leading-none">☰</span>
           </button>
-
-          <div className="flex min-w-0 items-center gap-2">
-            {/* Logo mark (matches provided screenshot reference) */}
-            {/* Uses Next public/ assets path */}
-            <img
-              src="/assets/im.png"
-              alt=""
-              aria-hidden="true"
-              className="h-8 w-8 rounded-full bg-white/10 object-contain"
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[15px] font-semibold leading-none tracking-wide">
-                Career Navigator
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Right: profile/avatar control */}
