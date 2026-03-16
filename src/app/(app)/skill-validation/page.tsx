@@ -313,9 +313,6 @@ export default function SkillValidationPage() {
                         <Button onClick={handleStart} rightIcon={<span aria-hidden="true">→</span>}>
                           Start interview
                         </Button>
-                        <Button variant="secondary" onClick={() => router.push("/journey")}>
-                          Back to Journey
-                        </Button>
                       </div>
                     </div>
                   </div>
