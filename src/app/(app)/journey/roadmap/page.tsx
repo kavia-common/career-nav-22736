@@ -38,6 +38,8 @@ type RolePlan = {
   milestones: Milestone[];
 };
 
+import { getRoleCartRoles } from "@/lib/roleCart";
+
 const ROLE_CART_KEY = "cn_role_cart_ids_v1";
 const ROADMAP_STATE_KEY = "cn_roadmap_state_v1";
 
@@ -540,10 +542,13 @@ function PathwayCareerTimeline(props: { planTitle: string; milestones: Milestone
   );
 }
 
-function seedRolePlan(roleId: string): RolePlan {
-  const fallbackTitle = roleId === "n-em" ? "Engineering Manager" : roleId === "n-pm" ? "Product Manager" : roleId === "n-cto" ? "CTO" : "Target Role";
-  const industry = roleId.includes("h") ? "HealthTech" : roleId.includes("pm") ? "Technology" : "SaaS";
-  const compatibility = roleId === "n-hl" ? 78 : roleId === "n-pm" ? 72 : roleId === "n-em" ? 64 : 58;
+function seedRolePlan(input: { roleId: string; title: string; industry?: string; compatibility?: number }): RolePlan {
+  const { roleId, title } = input;
+
+  // If we don't have metadata, fall back to simple heuristics, but never to a generic placeholder title.
+  const industry = input.industry ?? (roleId.includes("h") ? "HealthTech" : roleId.includes("pm") ? "Technology" : "SaaS");
+  const compatibility =
+    typeof input.compatibility === "number" ? input.compatibility : roleId === "n-hl" ? 78 : roleId === "n-pm" ? 72 : roleId === "n-em" ? 64 : 58;
 
   const deltas: SkillDelta[] = [
     { id: uid("d"), skill: "Leadership", current: 3, target: 4 },
@@ -565,7 +570,7 @@ function seedRolePlan(roleId: string): RolePlan {
     { id: uid("m"), title: "Land the target role (or a stepping-stone role)", date: base, description: "Use the portfolio + narrative to execute the job search.", status: "Not started", tags: ["Target Role"], stage: "next" }
   ];
 
-  return { roleId, title: fallbackTitle, industry, compatibility, deltas, milestones };
+  return { roleId, title, industry, compatibility, deltas, milestones };
 }
 
 function loadRoadmapState(): { activeRoleId: string | null; plans: RolePlan[] } {
@@ -1781,13 +1786,36 @@ export default function RoadmapJourneyPage() {
   const [renderTab, setRenderTab] = React.useState<RoadmapTab>("mindMap");
 
   React.useEffect(() => {
-    const ids = safeParseStringArray(window.localStorage.getItem(ROLE_CART_KEY));
+    // Prefer v1 cart with metadata so we can show real titles in "Selected roles".
+    const cartRoles = getRoleCartRoles();
+
+    // Backward-compat fallback: legacy ids-only storage.
+    const legacyIds = cartRoles.length === 0 ? safeParseStringArray(window.localStorage.getItem(ROLE_CART_KEY)) : [];
+
+    const ids = cartRoles.length > 0 ? cartRoles.map((r) => r.id) : legacyIds;
     setCartRoleIds(ids);
 
     const restored = loadRoadmapState();
     const restoredPlansById = new Map<string, RolePlan>((restored.plans ?? []).map((p: RolePlan) => [p.roleId, p]));
 
-    const nextPlans = ids.map((id) => restoredPlansById.get(id) ?? seedRolePlan(id));
+    const cartMetaById = new Map(cartRoles.map((r) => [r.id, r] as const));
+
+    const nextPlans = ids.map((id) => {
+      const restoredPlan = restoredPlansById.get(id);
+      if (restoredPlan) {
+        // If restored plan has a placeholder title, upgrade it using cart metadata.
+        const meta = cartMetaById.get(id);
+        const upgradedTitle = meta?.title && restoredPlan.title === "Target Role" ? meta.title : restoredPlan.title;
+        const upgradedIndustry = meta?.industry && (!restoredPlan.industry || restoredPlan.industry === "SaaS") ? restoredPlan.industry : restoredPlan.industry;
+        return { ...restoredPlan, title: upgradedTitle, industry: restoredPlan.industry ?? upgradedIndustry };
+      }
+
+      const meta = cartMetaById.get(id);
+      // If meta is missing (legacy-only), do a best-effort non-generic title.
+      const title = meta?.title ?? (id === "n-em" ? "Engineering Manager" : id === "n-pm" ? "Product Manager" : id === "n-cto" ? "CTO" : id);
+      return seedRolePlan({ roleId: id, title, industry: meta?.industry, compatibility: meta?.compatibility });
+    });
+
     setPlans(nextPlans);
 
     const nextSelected = restored.activeRoleId && ids.includes(restored.activeRoleId) ? restored.activeRoleId : ids[0] ?? null;

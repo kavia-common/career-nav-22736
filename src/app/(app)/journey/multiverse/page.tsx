@@ -122,7 +122,7 @@ function safeParseStringArray(raw: string | null): string[] {
   }
 }
 
-const ROLE_CART_KEY = "cn_role_cart_ids_v1";
+import { clearRoleCart, getRoleCartRoleIds, getRoleCartRoles, removeRoleFromCart, upsertRoleInCart } from "@/lib/roleCart";
 
 // PUBLIC_INTERFACE
 export default function MultiverseStepPage() {
@@ -392,39 +392,88 @@ export default function MultiverseStepPage() {
 
   const showEmptyState = filteredNodes.length < 3;
 
-  // ---- Role cart ----
-  const [roleCartIds, setRoleCartIds] = useLocalStorageSet(ROLE_CART_KEY, []);
+  // ---- Role cart (shared storage) ----
+  // Keep local state for reactive UI updates, backed by localStorage.
+  const [cartRoleIds, setCartRoleIds] = React.useState<string[]>([]);
+  const [cartRolesById, setCartRolesById] = React.useState<Record<string, { title: string; industry?: string; compatibility?: number }>>({});
+
+  const refreshCartFromStorage = React.useCallback(() => {
+    const roles = getRoleCartRoles();
+    setCartRoleIds(roles.map((r) => r.id));
+    setCartRolesById(
+      roles.reduce(
+        (acc, r) => {
+          acc[r.id] = { title: r.title, industry: r.industry, compatibility: r.compatibility };
+          return acc;
+        },
+        {} as Record<string, { title: string; industry?: string; compatibility?: number }>
+      )
+    );
+  }, []);
+
+  React.useEffect(() => {
+    refreshCartFromStorage();
+
+    // Sync if another tab modifies cart.
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === "cn_role_cart_v1" || e.key === "cn_role_cart_ids_v1") refreshCartFromStorage();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshCartFromStorage]);
 
   const roleCart = React.useMemo(() => {
+    // Prefer Multiverse dataset nodes for richer UI; fall back to persisted metadata if node isn't in dataset.
     const byId = new Map(allNodes.map((n) => [n.id, n]));
-    return [...roleCartIds].map((id) => byId.get(id)).filter(Boolean) as MultiverseNode[];
-  }, [allNodes, roleCartIds]);
+    return cartRoleIds
+      .map((id) => {
+        const node = byId.get(id);
+        if (node) return node;
+        const meta = cartRolesById[id];
+        if (!meta) return null;
+        return {
+          id,
+          title: meta.title,
+          industry: meta.industry ?? "—",
+          compatibility: typeof meta.compatibility === "number" ? meta.compatibility : 0,
+          description: "",
+          requiredSkills: [],
+          skillGaps: [],
+          transitionTime: "",
+          pathType: "traditional",
+          stage: 1
+        } as MultiverseNode;
+      })
+      .filter(Boolean) as MultiverseNode[];
+  }, [allNodes, cartRoleIds, cartRolesById]);
 
-  const isSelectedInCart = selectedRole ? roleCartIds.has(selectedRole.id) : false;
+  const cartRoleIdSet = React.useMemo(() => new Set(cartRoleIds), [cartRoleIds]);
+  const isSelectedInCart = selectedRole ? cartRoleIdSet.has(selectedRole.id) : false;
 
   const addSelectedToCart = React.useCallback(() => {
     if (!selectedRole) return;
-    setRoleCartIds((prev) => {
-      const next = new Set(prev);
-      next.add(selectedRole.id);
-      return next;
+    upsertRoleInCart({
+      id: selectedRole.id,
+      title: selectedRole.title,
+      industry: selectedRole.industry,
+      compatibility: selectedRole.compatibility
     });
-  }, [selectedRole, setRoleCartIds]);
+    refreshCartFromStorage();
+  }, [selectedRole, refreshCartFromStorage]);
 
   const removeFromCart = React.useCallback(
     (id: string) => {
-      setRoleCartIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      removeRoleFromCart(id);
+      refreshCartFromStorage();
     },
-    [setRoleCartIds]
+    [refreshCartFromStorage]
   );
 
   const clearCart = React.useCallback(() => {
-    setRoleCartIds(new Set());
-  }, [setRoleCartIds]);
+    clearRoleCart();
+    refreshCartFromStorage();
+  }, [refreshCartFromStorage]);
 
   const proceedToRoadmap = React.useCallback(() => {
     /**
@@ -689,7 +738,7 @@ export default function MultiverseStepPage() {
                           variant={isSelectedInCart ? "secondary" : "primary"}
                           onClick={() => {
                             if (!selectedRole) return;
-                            if (roleCartIds.has(selectedRole.id)) {
+                            if (cartRoleIdSet.has(selectedRole.id)) {
                               removeFromCart(selectedRole.id);
                             } else {
                               addSelectedToCart();
