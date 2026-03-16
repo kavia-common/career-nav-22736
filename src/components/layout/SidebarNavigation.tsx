@@ -40,12 +40,32 @@ function isNavItemActive(pathnameRaw: string, hrefRaw: string) {
   // Product-specific grouping rules:
   // - "Build Persona" should remain active across persona onboarding sub-steps.
   // - "Draft Persona" should be active for all persona pages (index, analyze, draft).
+  // - Primary journey destinations (Multiverse/Roadmap/Marketplace) have both top-level
+  //   routes (e.g. `/multiverse`) and journey-prefixed routes (e.g. `/journey/multiverse`);
+  //   these should share the same active styling in the sidebar.
   if (href === "/journey/build-profile") {
-    return startsWithPathSegment(pathname, "/journey/build-profile") || startsWithPathSegment(pathname, "/journey/persona");
+    return (
+      startsWithPathSegment(pathname, "/journey/build-profile") ||
+      startsWithPathSegment(pathname, "/journey/persona")
+    );
   }
 
   if (href === "/journey/persona/draft") {
     return startsWithPathSegment(pathname, "/journey/persona");
+  }
+
+  // Make sure `/journey/*` pages highlight their corresponding primary nav item.
+  // This keeps active styling consistent with "Skill Validation" (which has a single route).
+  if (href === "/multiverse") {
+    return startsWithPathSegment(pathname, "/journey/multiverse");
+  }
+
+  if (href === "/roadmap") {
+    return startsWithPathSegment(pathname, "/journey/roadmap");
+  }
+
+  if (href === "/marketplace") {
+    return startsWithPathSegment(pathname, "/journey/marketplace");
   }
 
   return false;
