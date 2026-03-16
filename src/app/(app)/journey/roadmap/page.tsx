@@ -1785,8 +1785,14 @@ export default function RoadmapJourneyPage() {
   const [tabPhase, setTabPhase] = React.useState<"idle" | "out" | "in">("idle");
   const [renderTab, setRenderTab] = React.useState<RoadmapTab>("mindMap");
 
-  React.useEffect(() => {
-    // Prefer v1 cart with metadata so we can show real titles in "Selected roles".
+  const refreshFromCartStorage = React.useCallback(() => {
+    /**
+     * Refresh the Roadmap view from the shared roleCart storage.
+     *
+     * Why: Users can add multiple roles in Multiverse and then navigate back/forth.
+     * If Roadmap only hydrates once (mount), it can show a stale subset (often just
+     * the first role) in "Selected roles".
+     */
     const cartRoles = getRoleCartRoles();
 
     // Backward-compat fallback: legacy ids-only storage.
@@ -1797,20 +1803,24 @@ export default function RoadmapJourneyPage() {
 
     const restored = loadRoadmapState();
     const restoredPlansById = new Map<string, RolePlan>((restored.plans ?? []).map((p: RolePlan) => [p.roleId, p]));
-
     const cartMetaById = new Map(cartRoles.map((r) => [r.id, r] as const));
 
     const nextPlans = ids.map((id) => {
       const restoredPlan = restoredPlansById.get(id);
+      const meta = cartMetaById.get(id);
+
       if (restoredPlan) {
         // If restored plan has a placeholder title, upgrade it using cart metadata.
-        const meta = cartMetaById.get(id);
         const upgradedTitle = meta?.title && restoredPlan.title === "Target Role" ? meta.title : restoredPlan.title;
-        const upgradedIndustry = meta?.industry && (!restoredPlan.industry || restoredPlan.industry === "SaaS") ? restoredPlan.industry : restoredPlan.industry;
-        return { ...restoredPlan, title: upgradedTitle, industry: restoredPlan.industry ?? upgradedIndustry };
+
+        // Upgrade industry if we have metadata and the restored plan lacks a meaningful industry.
+        const upgradedIndustry =
+          meta?.industry && (!restoredPlan.industry || restoredPlan.industry === "SaaS") ? meta.industry : restoredPlan.industry;
+
+        // Keep existing compatibility/milestones/deltas from restored plan.
+        return { ...restoredPlan, title: upgradedTitle, industry: upgradedIndustry };
       }
 
-      const meta = cartMetaById.get(id);
       // If meta is missing (legacy-only), do a best-effort non-generic title.
       const title = meta?.title ?? (id === "n-em" ? "Engineering Manager" : id === "n-pm" ? "Product Manager" : id === "n-cto" ? "CTO" : id);
       return seedRolePlan({ roleId: id, title, industry: meta?.industry, compatibility: meta?.compatibility });
@@ -1818,9 +1828,32 @@ export default function RoadmapJourneyPage() {
 
     setPlans(nextPlans);
 
-    const nextSelected = restored.activeRoleId && ids.includes(restored.activeRoleId) ? restored.activeRoleId : ids[0] ?? null;
-    setSelectedRole(nextSelected);
+    setSelectedRole((prev) => {
+      if (prev && ids.includes(prev)) return prev;
+      if (restored.activeRoleId && ids.includes(restored.activeRoleId)) return restored.activeRoleId;
+      return ids[0] ?? null;
+    });
   }, []);
+
+  React.useEffect(() => {
+    refreshFromCartStorage();
+
+    // Sync if another tab modifies cart.
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === "cn_role_cart_v1" || e.key === "cn_role_cart_ids_v1") refreshFromCartStorage();
+    };
+
+    // Sync when user returns to this tab/window after adding roles in Multiverse.
+    const onFocus = () => refreshFromCartStorage();
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshFromCartStorage]);
 
   React.useEffect(() => {
     if (plans.length === 0) return;
