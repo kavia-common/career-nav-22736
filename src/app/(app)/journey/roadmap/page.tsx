@@ -25,6 +25,10 @@ type Milestone = {
   date: string; // yyyy-mm-dd
   description: string;
   status: MilestoneStatus;
+  // NEW: pathway redesign uses lightweight tags instead of form fields.
+  tags?: string[];
+  // NEW: stage grouping for NOW/NEAR/NEXT.
+  stage?: "now" | "near" | "next";
 };
 
 type RolePlan = {
@@ -78,28 +82,10 @@ function ProgressPill({ value }: { value: number }) {
   );
 }
 
-function StatusChip({ value }: { value: MilestoneStatus }) {
-  const cls =
-    value === "Done"
-      ? "bg-teal-50 text-teal-800 ring-teal-200"
-      : value === "In progress"
-        ? "bg-amber-50 text-amber-900 ring-amber-200"
-        : "bg-white text-zinc-700 ring-zinc-200";
-
-  return <span className={cn("rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset", cls)}>{value}</span>;
-}
-
 function milestoneProgress(m: Milestone) {
   if (m.status === "Done") return 100;
   if (m.status === "In progress") return 50;
   return 0;
-}
-
-function milestoneClusterIndex(m: Milestone) {
-  const p = milestoneProgress(m);
-  if (p >= 100) return 0;
-  if (p > 0) return 1;
-  return 2;
 }
 
 function completionSummary(milestones: Milestone[]) {
@@ -111,290 +97,489 @@ function completionSummary(milestones: Milestone[]) {
 }
 
 function progressRingTone(percent: number) {
-  if (percent >= 75) return { track: "bg-teal-500/15", bar: "bg-teal-400" };
-  if (percent >= 40) return { track: "bg-amber-500/15", bar: "bg-amber-400" };
-  return { track: "bg-white/10", bar: "bg-white/25" };
+  // Keep the futuristic/dark UI: tones are neon-ish.
+  if (percent >= 75) return { track: "rgba(16, 185, 129, 0.16)", bar: "rgba(52, 211, 153, 0.95)" }; // emerald
+  if (percent >= 40) return { track: "rgba(245, 158, 11, 0.14)", bar: "rgba(251, 191, 36, 0.95)" }; // amber
+  return { track: "rgba(255, 255, 255, 0.10)", bar: "rgba(148, 163, 184, 0.85)" }; // slate
 }
 
-function PathwayIcon({ kind, className }: { kind: "check" | "star" | "flag"; className?: string }) {
+function stageIcon(kind: "flag" | "lightning" | "target", className?: string) {
   const cls = cn("h-4 w-4", className);
-  if (kind === "check") {
+  if (kind === "flag") {
+    // start flag
     return (
       <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
-        <path fill="currentColor" d="M9.0 16.2 4.8 12l-1.4 1.4 5.6 5.6L20.6 7.4 19.2 6z" />
+        <path fill="currentColor" d="M6 2h2v2h10l-2 4 2 4H8v10H6V2Zm2 4v4h8.8l-1-2 1-2H8Z" />
       </svg>
     );
   }
-  if (kind === "star") {
+  if (kind === "lightning") {
     return (
       <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M12 17.3 5.8 20.9l1.7-7.1L2 9.2l7.3-.6L12 2l2.7 6.6 7.3.6-5.5 4.6 1.7 7.1z"
-        />
+        <path fill="currentColor" d="M13 2 3 14h7l-1 8 12-14h-7l-1-6Z" />
       </svg>
     );
   }
+  // target
   return (
     <svg viewBox="0 0 24 24" className={cls} aria-hidden="true">
-      <path fill="currentColor" d="M6 3h12v2h-2v4.2l1.6 1.6-1.4 1.4L15 11V5H9v16H7V3Z" />
+      <path
+        fill="currentColor"
+        d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm0 2a8 8 0 1 1-8 8 8.01 8.01 0 0 1 8-8Zm0 3a5 5 0 1 0 5 5 5.01 5.01 0 0 0-5-5Zm0 2a3 3 0 1 1-3 3 3.01 3.01 0 0 1 3-3Zm0 2a1 1 0 1 0 1 1 1 1 0 0 0-1-1Z"
+      />
     </svg>
   );
 }
 
-function PathwayTimelineCard(props: {
-  planTitle: string;
-  milestones: Milestone[];
-  onToggleDone: (milestoneId: string, done: boolean) => void;
-  onUpdate: (milestoneId: string, patch: Partial<Milestone>) => void;
-  onDelete: (milestoneId: string) => void;
-  onAdd: () => void;
+function computeStageForIndex(idx: number, total: number): "now" | "near" | "next" {
+  // 3 columns roughly aligned with timeline; default distribution:
+  // - if total <= 2: put into NOW
+  // - else: first 3 NOW, next 3 NEAR, rest NEXT (matches the reference example 3/3/2)
+  if (total <= 2) return "now";
+  if (idx < 3) return "now";
+  if (idx < 6) return "near";
+  return "next";
+}
+
+function normalizeMilestonesForPathway(milestones: Milestone[]) {
+  // Ensure stage/tags exist without breaking older saved roadmap data.
+  // If stage is already set (future), keep it.
+  // Otherwise distribute by index so counters read sensibly.
+  const total = milestones.length;
+  return milestones.map((m, idx) => {
+    const stage = m.stage ?? computeStageForIndex(idx, total);
+    const tags =
+      m.tags && m.tags.length
+        ? m.tags
+        : // Derive minimal tags from legacy description if possible; otherwise default to a single category.
+          (() => {
+            // Very light heuristic; keeps UI clean and non-form-like.
+            if (/cert/i.test(m.title)) return ["Certification"];
+            if (/lead/i.test(m.title)) return ["Leadership"];
+            if (/portfolio|project|ship|build/i.test(m.title)) return ["Experience"];
+            if (/network|mentor|community/i.test(m.title)) return ["Relationship"];
+            return ["Skill Development"];
+          })();
+    return { ...m, stage, tags };
+  });
+}
+
+function ProgressRing(props: { value: number; label: string }) {
+  const { value, label } = props;
+  const v = clamp(value, 0, 100);
+  const tone = progressRingTone(v);
+
+  // SVG ring
+  const size = 44;
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const dash = (v / 100) * c;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true">
+          <circle cx="22" cy="22" r={r} stroke={tone.track} strokeWidth="5" fill="none" />
+          <circle
+            cx="22"
+            cy="22"
+            r={r}
+            stroke={tone.bar}
+            strokeWidth="5"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${c - dash}`}
+            transform="rotate(-90 22 22)"
+            style={{ filter: "drop-shadow(0 0 10px rgba(45, 212, 191, 0.22))" }}
+          />
+        </svg>
+        <div className="absolute text-[10px] font-bold text-white/85 tabular-nums">{v}%</div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold text-white/55">Milestones</div>
+        <div className="truncate text-sm font-bold text-white">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function TagChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold",
+        "border border-white/10 bg-white/5 text-white/70"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function StageNode(props: {
+  title: string;
+  subtitle: string;
+  icon: "flag" | "lightning" | "target";
+  done: number;
+  total: number;
+  accentRgb: string; // "r g b"
+  isCurrent?: boolean;
 }) {
-  const { planTitle, milestones, onToggleDone, onUpdate, onDelete, onAdd } = props;
+  const { title, subtitle, icon, done, total, accentRgb, isCurrent } = props;
+  const complete = total > 0 && done === total;
+  const baseGlow = complete ? 0.52 : isCurrent ? 0.46 : 0.30;
 
-  const sorted = React.useMemo(() => [...milestones].sort((a, b) => a.date.localeCompare(b.date)), [milestones]);
+  return (
+    <div className="relative flex flex-col items-center text-center">
+      <div
+        className={cn(
+          "relative z-[2] grid h-11 w-11 place-items-center rounded-full border",
+          "bg-[#071225]/90 backdrop-blur",
+          isCurrent ? "scale-[1.02]" : "scale-100",
+          "transition-transform duration-200"
+        )}
+        style={{
+          borderColor: `rgba(${accentRgb} / 0.52)`,
+          boxShadow: `0 0 22px rgba(${accentRgb} / ${baseGlow}), 0 0 2px rgba(${accentRgb} / 0.55)`
+        }}
+        aria-label={`${title} stage`}
+      >
+        <span className="text-white/92" style={{ filter: "drop-shadow(0 0 12px rgba(255,255,255,0.10))" }}>
+          {stageIcon(icon)}
+        </span>
+      </div>
 
-  const grouped = React.useMemo(() => {
-    const columns: Milestone[][] = [[], [], []];
-    sorted.forEach((m) => {
-      columns[milestoneClusterIndex(m)].push(m);
-    });
+      <div className="mt-2 text-sm font-extrabold tracking-wide text-white">{title}</div>
+      <div className="mt-0.5 text-[11px] font-semibold text-white/55">{subtitle}</div>
+      <div className="mt-1 text-[11px] font-semibold text-white/70 tabular-nums">
+        {done}/{total} complete
+      </div>
 
-    const flattened = [...columns[0], ...columns[1], ...columns[2]];
-    const fixed: Milestone[][] = [[], [], []];
-    flattened.forEach((m) => {
-      const idx = fixed.reduce((best, col, i) => (col.length < fixed[best].length ? i : best), 0);
-      fixed[idx].push(m);
-    });
+      {complete && (
+        <div
+          aria-hidden="true"
+          className="mt-2 h-1 w-10 rounded-full"
+          style={{
+            background: `linear-gradient(90deg, rgba(${accentRgb} / 0.95), rgba(45, 212, 191, 0.35))`,
+            boxShadow: `0 0 16px rgba(${accentRgb} / 0.32)`
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
-    const linear = [...sorted];
-    return [linear.slice(0, 2), linear.slice(2, 4), linear.slice(4)];
-  }, [sorted]);
+function MilestoneCard(props: { milestone: Milestone; onToggleDone: (id: string, done: boolean) => void }) {
+  const { milestone: m, onToggleDone } = props;
+  const done = m.status === "Done";
 
-  const summary = React.useMemo(() => completionSummary(sorted), [sorted]);
-  const tone = progressRingTone(summary.percent);
+  return (
+    <label
+      className={cn(
+        "group relative flex gap-3 rounded-2xl border p-3",
+        "bg-[#071225]/82 backdrop-blur",
+        "transition-all duration-200",
+        done ? "opacity-60" : "opacity-100",
+        "hover:-translate-y-[1px] hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]",
+        "focus-within:ring-2 focus-within:ring-white/15"
+      )}
+      style={{
+        borderColor: done ? "rgba(148, 163, 184, 0.16)" : "rgba(255, 255, 255, 0.10)",
+        boxShadow: done ? "0 0 0 1px rgba(255,255,255,0.03)" : "0 0 0 1px rgba(45, 212, 191, 0.06)"
+      }}
+    >
+      {/* soft glow on hover */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+        style={{
+          background:
+            "radial-gradient(circle at 30% 25%, rgba(45, 212, 191, 0.14), transparent 55%), radial-gradient(circle at 80% 65%, rgba(59, 130, 246, 0.10), transparent 58%)"
+        }}
+      />
 
-  const stage1Done = summary.done > 0;
-  const stage2Current = !stage1Done && summary.inProgress > 0;
+      <span className="relative mt-0.5">
+        <input
+          type="checkbox"
+          checked={done}
+          onChange={(e) => onToggleDone(m.id, e.target.checked)}
+          className={cn(
+            "h-5 w-5 rounded-md border bg-white/5",
+            "border-white/20 text-teal-400",
+            "transition-all duration-200",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25",
+            done ? "shadow-[0_0_0_3px_rgba(16,185,129,0.10)]" : "shadow-none"
+          )}
+          aria-label={`Mark milestone ${m.title} complete`}
+        />
+        {/* checkbox pulse */}
+        <span
+          aria-hidden="true"
+          className={cn("pointer-events-none absolute -inset-2 rounded-lg opacity-0", done ? "opacity-100" : "opacity-0")}
+          style={{
+            transition: "opacity 220ms ease",
+            background: "radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.20), transparent 60%)"
+          }}
+        />
+      </span>
 
-  const stageStates: Array<{
-    title: string;
-    subtitle: string;
-    icon: "check" | "star" | "flag";
-    tone: "complete" | "current" | "upcoming";
-  }> = [
-    {
-      title: "Role-Specific Milestones",
-      subtitle: "Foundation Building",
-      icon: "check",
-      tone: stage1Done ? "complete" : "upcoming"
-    },
-    {
-      title: "Advanced Concepts",
-      subtitle: "Skill Deepening",
-      icon: "star",
-      tone: stage2Current ? "current" : summary.done > 0 ? "current" : "upcoming"
-    },
-    {
-      title: "Project Milestones",
-      subtitle: "Portfolio Creation",
-      icon: "flag",
-      tone: summary.done === summary.total && summary.total > 0 ? "complete" : "upcoming"
+      <div className="relative min-w-0 flex-1">
+        <div className={cn("text-[13px] font-extrabold text-white/92", done ? "line-through decoration-white/20" : "no-underline")}>
+          {m.title}
+        </div>
+
+        {m.tags && m.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {m.tags.slice(0, 4).map((t) => (
+              <TagChip key={t}>{t}</TagChip>
+            ))}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function PathwayCareerTimeline(props: { planTitle: string; milestones: Milestone[]; onToggleDone: (milestoneId: string, done: boolean) => void }) {
+  const { planTitle, milestones, onToggleDone } = props;
+
+  const normalized = React.useMemo(() => normalizeMilestonesForPathway(milestones), [milestones]);
+
+  const stages = React.useMemo(() => {
+    const now = normalized.filter((m) => m.stage === "now");
+    const near = normalized.filter((m) => m.stage === "near");
+    const next = normalized.filter((m) => m.stage === "next");
+
+    const countDone = (arr: Milestone[]) => arr.filter((m) => m.status === "Done").length;
+
+    return {
+      now: { items: now, done: countDone(now), total: now.length },
+      near: { items: near, done: countDone(near), total: near.length },
+      next: { items: next, done: countDone(next), total: next.length }
+    };
+  }, [normalized]);
+
+  const summary = React.useMemo(() => completionSummary(normalized), [normalized]);
+
+  // pick "current" stage: first stage that isn't complete (or NOW if empty)
+  const currentStage = React.useMemo<"now" | "near" | "next">(() => {
+    const order: Array<"now" | "near" | "next"> = ["now", "near", "next"];
+    for (const s of order) {
+      const st = stages[s];
+      if (st.total === 0) continue;
+      if (st.done < st.total) return s;
     }
-  ];
-
-  const nodeTone = (t: (typeof stageStates)[number]["tone"]) => {
-    if (t === "complete") return "text-emerald-300";
-    if (t === "current") return "text-amber-300";
-    return "text-rose-300";
-  };
-
-  const dotTone = (idx: number) => {
-    if (idx % 3 === 0) return "bg-sky-400";
-    if (idx % 3 === 1) return "bg-violet-400";
-    return "bg-orange-400";
-  };
+    return "now";
+  }, [stages]);
 
   return (
     <section
       className={cn(
-        "rounded-2xl border p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)]",
-        "border-white/10 bg-gradient-to-b from-[#0b1b2b] to-[#07131f]"
+        "relative overflow-hidden rounded-2xl border p-4",
+        "border-white/10 bg-gradient-to-b from-[#0b1b2b] to-[#07131f]",
+        "shadow-[0_18px_50px_rgba(0,0,0,0.22)]"
       )}
-      aria-label="Pathway timeline"
+      aria-label="Career journey pathway"
     >
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* Ambient futuristic background (particles + grid) */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 opacity-[0.22]"
+          style={{
+            background:
+              "radial-gradient(circle at 18% 28%, rgba(20, 184, 166, 0.22), transparent 56%), radial-gradient(circle at 74% 34%, rgba(59, 130, 246, 0.10), transparent 60%), radial-gradient(circle at 60% 82%, rgba(168, 85, 247, 0.10), transparent 55%)"
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            background:
+              "linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)",
+            backgroundSize: "58px 58px",
+            maskImage: "radial-gradient(circle at 50% 35%, black 35%, transparent 74%)"
+          }}
+        />
+        {Array.from({ length: 14 }).map((_, i) => {
+          const left = (i * 37) % 100;
+          const top = (i * 29) % 100;
+          const sizePx = 2 + (i % 4);
+          const dur = 7 + (i % 7);
+          const delay = (i % 8) * -0.65;
+          return (
+            <span
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                width: sizePx,
+                height: sizePx,
+                background: "rgba(45, 212, 191, 0.22)",
+                boxShadow: "0 0 16px rgba(45, 212, 191, 0.14)",
+                animation: `cn-path-float ${dur}s ease-in-out ${delay}s infinite`
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Header + top progress tracker */}
+      <div className="relative z-[1] mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-white/80">Pathway</div>
-          <div className="mt-1 truncate text-base font-bold text-white">Milestones for {planTitle}</div>
-          <div className="mt-1 text-xs font-medium text-white/55">Check items complete to update progress. Edit titles/descriptions inline.</div>
+          <div className="text-xs font-semibold text-white/55">Pathway</div>
+          <div className="mt-1 truncate text-base font-extrabold text-white">Career Journey — {planTitle}</div>
+          <div className="mt-1 text-[11px] font-medium text-white/55">Check milestones to update stage counters and overall progress.</div>
         </div>
 
-        <div className="flex items-center gap-3 self-start rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold text-white/55">Progress</div>
-            <div className="mt-0.5 text-sm font-bold text-white tabular-nums">
-              {summary.percent}% <span className="text-xs font-semibold text-white/55">({summary.done}/{summary.total})</span>
-            </div>
-          </div>
-          <div className={cn("h-8 w-20 rounded-full p-1", tone.track)} aria-hidden="true">
-            <div className={cn("h-full rounded-full", tone.bar)} style={{ width: `${summary.percent}%` }} />
-          </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 backdrop-blur">
+          <ProgressRing value={summary.percent} label={`${summary.done} / ${summary.total} completed`} />
         </div>
       </div>
 
-      <div className="relative grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+      {/* Timeline (NOW/NEAR/NEXT) */}
+      <div className="relative z-[1] rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-4">
+        {/* horizontal line */}
         <div
           aria-hidden="true"
-          className="hidden sm:block"
+          className="absolute left-6 right-6 top-[30px] hidden h-[2px] md:block"
           style={{
-            position: "absolute",
-            left: 24,
-            right: 24,
-            top: 15,
-            height: 2,
-            background: "rgba(156, 179, 201, 0.18)"
+            background: "linear-gradient(90deg, rgba(45,212,191,0.16), rgba(59,130,246,0.12), rgba(168,85,247,0.12))"
+          }}
+        />
+        {/* vertical line for small screens */}
+        <div
+          aria-hidden="true"
+          className="absolute bottom-6 left-[30px] top-6 block w-[2px] md:hidden"
+          style={{
+            background: "linear-gradient(180deg, rgba(45,212,191,0.16), rgba(59,130,246,0.12), rgba(168,85,247,0.12))"
           }}
         />
 
-        {stageStates.map((s) => (
-          <div key={s.title} className="relative flex flex-col items-center text-center">
-            <div
-              className={cn("z-[1] grid h-8 w-8 place-items-center rounded-full border", "border-white/10 bg-[#0b2237]", nodeTone(s.tone))}
-              aria-label={s.tone === "complete" ? "Completed stage" : s.tone === "current" ? "Current stage" : "Upcoming stage"}
-            >
-              <PathwayIcon kind={s.icon} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          <StageNode
+            title="NOW"
+            subtitle="0–6 months"
+            icon="flag"
+            done={stages.now.done}
+            total={stages.now.total}
+            accentRgb="45 212 191"
+            isCurrent={currentStage === "now"}
+          />
+          <StageNode
+            title="NEAR"
+            subtitle="1–2 years"
+            icon="lightning"
+            done={stages.near.done}
+            total={stages.near.total}
+            accentRgb="59 130 246"
+            isCurrent={currentStage === "near"}
+          />
+          <StageNode
+            title="NEXT"
+            subtitle="2–5 years"
+            icon="target"
+            done={stages.next.done}
+            total={stages.next.total}
+            accentRgb="168 85 247"
+            isCurrent={currentStage === "next"}
+          />
+        </div>
+      </div>
+
+      {/* Milestone columns aligned with stages */}
+      <div className="relative z-[1] mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+        {/* NOW */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="text-xs font-extrabold text-white/90">NOW</div>
+            <div className="text-[11px] font-semibold text-white/55 tabular-nums">
+              {stages.now.done}/{stages.now.total}
             </div>
-            <div className="mt-2 text-[13px] font-bold text-white/90">{s.title}</div>
-            <div className="mt-0.5 text-[11px] font-semibold text-white/55">{s.subtitle}</div>
           </div>
-        ))}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-3">
-        {grouped.flatMap((col, colIdx) =>
-          col.map((m, rowIdx) => {
-            const idx = colIdx * 2 + rowIdx;
-            const done = m.status === "Done";
-            const overdue = m.status !== "Done" && m.date < todayISO();
-
-            return (
-              <article
-                key={m.id}
-                className={cn(
-                  "rounded-xl border p-3",
-                  "border-white/10 bg-[#0b2237]",
-                  overdue ? "shadow-[0_0_0_1px_rgba(244,63,94,0.20)]" : "shadow-[0_0_0_1px_rgba(255,255,255,0.02)]"
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("h-2.5 w-2.5 rounded-full", dotTone(idx))} aria-hidden="true" />
-                      <input
-                        className={cn("w-full bg-transparent text-[13px] font-semibold text-white/90", "outline-none placeholder:text-white/35")}
-                        value={m.title}
-                        onChange={(e) => onUpdate(m.id, { title: e.target.value })}
-                        aria-label="Milestone title"
-                      />
-                    </div>
-
-                    <textarea
-                      className={cn(
-                        "mt-2 w-full resize-none bg-transparent text-[11px] font-medium leading-relaxed text-white/55",
-                        "outline-none placeholder:text-white/30"
-                      )}
-                      value={m.description}
-                      onChange={(e) => onUpdate(m.id, { description: e.target.value })}
-                      rows={2}
-                      placeholder="Describe what done looks like"
-                      aria-label="Milestone description"
-                    />
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    <label className="flex items-center gap-2 text-[11px] font-semibold text-white/60">
-                      <input
-                        type="checkbox"
-                        checked={done}
-                        onChange={(e) => onToggleDone(m.id, e.target.checked)}
-                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-teal-400"
-                        aria-label="Mark milestone done"
-                      />
-                      Done
-                    </label>
-
-                    <button type="button" onClick={() => onDelete(m.id)} className="text-[11px] font-semibold text-white/45 hover:text-white/70">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold text-white/45">Due</div>
-                  <input
-                    type="date"
-                    className={cn(
-                      "rounded-lg border px-2 py-1 text-[11px] font-semibold",
-                      "border-white/10 bg-white/5 text-white/80",
-                      overdue ? "ring-1 ring-inset ring-rose-500/30" : "ring-0"
-                    )}
-                    value={m.date}
-                    onChange={(e) => onUpdate(m.id, { date: e.target.value })}
-                    aria-label="Milestone due date"
-                  />
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold text-white/45">Status</div>
-                  <select
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/80"
-                    value={m.status}
-                    onChange={(e) => onUpdate(m.id, { status: e.target.value as MilestoneStatus })}
-                    aria-label="Milestone status"
-                  >
-                    <option>Not started</option>
-                    <option>In progress</option>
-                    <option>Done</option>
-                  </select>
-                </div>
-              </article>
-            );
-          })
-        )}
-
-        {Array.from({ length: Math.max(0, 6 - sorted.length) }).map((_, i) => (
-          <div key={`ph_${i}`} className="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-3 text-[11px] font-semibold text-white/40">
-            Add a milestone to fill this slot.
+          <div className="space-y-2">
+            {stages.now.total === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-3 text-[11px] font-semibold text-white/50">
+                No milestones in this stage yet.
+              </div>
+            ) : (
+              stages.now.items.map((m) => <MilestoneCard key={m.id} milestone={m} onToggleDone={onToggleDone} />)
+            )}
           </div>
-        ))}
+        </div>
+
+        {/* NEAR */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="text-xs font-extrabold text-white/90">NEAR</div>
+            <div className="text-[11px] font-semibold text-white/55 tabular-nums">
+              {stages.near.done}/{stages.near.total}
+            </div>
+          </div>
+          <div className="space-y-2">
+            {stages.near.total === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-3 text-[11px] font-semibold text-white/50">
+                No milestones in this stage yet.
+              </div>
+            ) : (
+              stages.near.items.map((m) => <MilestoneCard key={m.id} milestone={m} onToggleDone={onToggleDone} />)
+            )}
+          </div>
+        </div>
+
+        {/* NEXT */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="text-xs font-extrabold text-white/90">NEXT</div>
+            <div className="text-[11px] font-semibold text-white/55 tabular-nums">
+              {stages.next.done}/{stages.next.total}
+            </div>
+          </div>
+          <div className="space-y-2">
+            {stages.next.total === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-3 text-[11px] font-semibold text-white/50">
+                No milestones in this stage yet.
+              </div>
+            ) : (
+              stages.next.items.map((m) => <MilestoneCard key={m.id} milestone={m} onToggleDone={onToggleDone} />)
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Button size="sm" variant="secondary" onClick={onAdd}>
-          Add milestone
-        </Button>
-
-        <button
-          type="button"
-          onClick={() => alert("Switch Pathway (placeholder).")}
-          className={cn(
-            "inline-flex h-9 items-center justify-center rounded-xl px-4 text-xs font-bold",
-            "bg-[rgba(31,208,199,1)] text-[#06202A]",
-            "shadow-[0_12px_28px_rgba(31,208,199,0.18)]",
-            "transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
-          )}
-        >
-          Switch Pathway
-        </button>
+      <div className="relative z-[1] mt-4 text-[11px] font-semibold text-white/50">
+        Tip: This is an MVP view. Milestones are auto-grouped into NOW/NEAR/NEXT based on their position unless a stage is explicitly set in data.
       </div>
+
+      {/* Local keyframes (scoped) */}
+      <style jsx>{`
+        @keyframes cn-path-float {
+          0% {
+            transform: translate3d(-6px, 10px, 0);
+            opacity: 0.16;
+          }
+          50% {
+            transform: translate3d(6px, -10px, 0);
+            opacity: 0.38;
+          }
+          100% {
+            transform: translate3d(-6px, 10px, 0);
+            opacity: 0.16;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          span[style*="cn-path-float"] {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }
 
 function seedRolePlan(roleId: string): RolePlan {
-  const fallbackTitle =
-    roleId === "n-em" ? "Engineering Manager" : roleId === "n-pm" ? "Product Manager" : roleId === "n-cto" ? "CTO" : "Target Role";
+  const fallbackTitle = roleId === "n-em" ? "Engineering Manager" : roleId === "n-pm" ? "Product Manager" : roleId === "n-cto" ? "CTO" : "Target Role";
 
   const industry = roleId.includes("h") ? "HealthTech" : roleId.includes("pm") ? "Technology" : "SaaS";
   const compatibility = roleId === "n-hl" ? 78 : roleId === "n-pm" ? 72 : roleId === "n-em" ? 64 : 58;
@@ -407,10 +592,81 @@ function seedRolePlan(roleId: string): RolePlan {
   ];
 
   const base = todayISO();
+
+  // Seed with a "career journey" flavor (still MVP, local only).
   const milestones: Milestone[] = [
-    { id: uid("m"), title: "Milestone 1", date: base, description: "Define a measurable outcome and scope your next project.", status: "Not started" },
-    { id: uid("m"), title: "Milestone 2", date: base, description: "Ship a small artifact that proves the target skill in practice.", status: "Not started" },
-    { id: uid("m"), title: "Milestone 3", date: base, description: "Expand scope: lead cross-functional delivery with stakeholders.", status: "Not started" }
+    {
+      id: uid("m"),
+      title: "AWS Solutions Certification",
+      date: base,
+      description: "Earn an industry credential to validate baseline cloud capability.",
+      status: "Not started",
+      tags: ["Certification", "Cloud Architecture"],
+      stage: "now"
+    },
+    {
+      id: uid("m"),
+      title: "Ship a role-relevant proof project",
+      date: base,
+      description: "Build and publish a demonstrable artifact aligned to your target role.",
+      status: "Not started",
+      tags: ["Experience", "Skill Development"],
+      stage: "now"
+    },
+    {
+      id: uid("m"),
+      title: "Leadership stretch: lead a cross-functional initiative",
+      date: base,
+      description: "Own scope, stakeholder alignment, and measurable outcomes.",
+      status: "Not started",
+      tags: ["Leadership", "Experience"],
+      stage: "now"
+    },
+    {
+      id: uid("m"),
+      title: "Deepen a core competency to advanced level",
+      date: base,
+      description: "Pick one key competency and build evidence with repeated reps.",
+      status: "Not started",
+      tags: ["Skill Development"],
+      stage: "near"
+    },
+    {
+      id: uid("m"),
+      title: "Build relationships with 2 mentors in the target domain",
+      date: base,
+      description: "Set up monthly checkpoints; collect feedback and referrals.",
+      status: "Not started",
+      tags: ["Relationship"],
+      stage: "near"
+    },
+    {
+      id: uid("m"),
+      title: "Target role alignment: map requirements to your evidence",
+      date: base,
+      description: "Create a clear narrative that connects milestones to role expectations.",
+      status: "Not started",
+      tags: ["Target Role"],
+      stage: "near"
+    },
+    {
+      id: uid("m"),
+      title: "Own an end-to-end initiative with measurable impact",
+      date: base,
+      description: "Drive results with accountability and clear communication.",
+      status: "Not started",
+      tags: ["Experience", "Leadership"],
+      stage: "next"
+    },
+    {
+      id: uid("m"),
+      title: "Land the target role (or a stepping-stone role)",
+      date: base,
+      description: "Use the portfolio + narrative to execute the job search.",
+      status: "Not started",
+      tags: ["Target Role"],
+      stage: "next"
+    }
   ];
 
   return { roleId, title: fallbackTitle, industry, compatibility, deltas, milestones };
@@ -1004,11 +1260,7 @@ function MindMapNodeView(props: {
           }}
         />
 
-        {!isSub && (
-          <span className={cn("relative z-[1] grid place-items-center", node.kind === "you" ? "text-white" : "text-white/90")}>
-            {icon}
-          </span>
-        )}
+        {!isSub && <span className={cn("relative z-[1] grid place-items-center", node.kind === "you" ? "text-white" : "text-white/90")}>{icon}</span>}
 
         {hasLabelInside && <span className="relative z-[1] mt-1 text-[10px] font-semibold tracking-wide text-white/90">{node.label}</span>}
         {isSub && <span className="sr-only">{node.label}</span>}
@@ -1053,10 +1305,7 @@ function MindMapCanvas3Layer(props: { selectedRole: RolePlan; fadeMs: number }) 
 
   const [size, setSize] = React.useState({ w: 1000, h: 640 });
 
-  const categories = React.useMemo(
-    () => buildCategoriesForRole({ roleTitle: selectedRole.title, roleId: selectedRole.roleId }),
-    [selectedRole.roleId, selectedRole.title]
-  );
+  const categories = React.useMemo(() => buildCategoriesForRole({ roleTitle: selectedRole.title, roleId: selectedRole.roleId }), [selectedRole.roleId, selectedRole.title]);
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
 
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
@@ -1278,18 +1527,7 @@ function MindMapCanvas3Layer(props: { selectedRole: RolePlan; fadeMs: number }) 
           const stroke = isHi ? `rgba(${e.accentRgb} / 0.58)` : `rgba(148, 163, 184, ${e.weight === "primary" ? 0.42 : 0.32})`;
           const strokeWidth = isHi ? (e.weight === "primary" ? 1.7 : 1.4) : e.weight === "primary" ? 1.2 : 1.0;
 
-          return (
-            <path
-              key={e.id}
-              d={d}
-              fill="none"
-              stroke={stroke}
-              strokeWidth={strokeWidth}
-              opacity={opacity}
-              filter="url(#mm-curve-glow)"
-              strokeLinecap="round"
-            />
-          );
+          return <path key={e.id} d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} opacity={opacity} filter="url(#mm-curve-glow)" strokeLinecap="round" />;
         })}
       </svg>
 
@@ -1368,7 +1606,7 @@ export default function RoadmapJourneyPage() {
    * Roadmap: planning hub for selected roles.
    * Tabs:
    * - Mind Map: redesigned 3-layer expandable radial mind map (YOU → 7 categories → expandable sub-nodes).
-   * - Pathway: timeline milestones (editable list with status).
+   * - Pathway: redesigned career journey timeline (NOW → NEAR → NEXT) with per-stage counters and top progress ring.
    */
   const router = useRouter();
 
@@ -1404,7 +1642,16 @@ export default function RoadmapJourneyPage() {
 
   const addMilestone = React.useCallback(() => {
     if (!activePlan) return;
-    const m: Milestone = { id: uid("m"), title: "New milestone", date: todayISO(), description: "", status: "Not started" };
+    // For the redesigned UI, a new milestone defaults into NOW.
+    const m: Milestone = {
+      id: uid("m"),
+      title: "New milestone",
+      date: todayISO(),
+      description: "",
+      status: "Not started",
+      tags: ["Skill Development"],
+      stage: "now"
+    };
     setPlans((prev) => prev.map((p) => (p.roleId === activePlan.roleId ? { ...p, milestones: [...p.milestones, m] } : p)));
   }, [activePlan]);
 
@@ -1524,8 +1771,7 @@ export default function RoadmapJourneyPage() {
                         style={
                           active
                             ? {
-                                boxShadow:
-                                  "0 0 0 1px rgba(13, 148, 136, 0.30), 0 14px 30px rgba(20, 184, 166, 0.18), 0 0 22px rgba(20, 184, 166, 0.22)"
+                                boxShadow: "0 0 0 1px rgba(13, 148, 136, 0.30), 0 14px 30px rgba(20, 184, 166, 0.18), 0 0 22px rgba(20, 184, 166, 0.22)"
                               }
                             : undefined
                         }
@@ -1592,10 +1838,7 @@ export default function RoadmapJourneyPage() {
             {!activePlan ? (
               <Card title="Select a role" description="Choose a role from the left to begin." />
             ) : tab === "mindMap" ? (
-              <Card
-                title="Mind Map — role-specific nodes"
-                description="Switch roles on the left to regenerate the map. Click a category to expand its sub-nodes. Hover for glow + tooltips."
-              >
+              <Card title="Mind Map — role-specific nodes" description="Switch roles on the left to regenerate the map. Click a category to expand its sub-nodes. Hover for glow + tooltips.">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs font-semibold text-zinc-600">
                     Selected role: <span className="font-bold text-zinc-900">{activePlan.title}</span>
@@ -1607,32 +1850,40 @@ export default function RoadmapJourneyPage() {
                 <MindMapCanvas3Layer selectedRole={activePlan} fadeMs={400} />
               </Card>
             ) : (
-              <Card title={`Pathway — ${activePlan.title}`} description="A milestone pathway laid out in three stages. Completion is tracked via checkbox/status.">
-                <PathwayTimelineCard
+              <Card title={`Pathway — ${activePlan.title}`} description="A career journey timeline across NOW → NEAR → NEXT. Completion updates automatically.">
+                <PathwayCareerTimeline
                   planTitle={activePlan.title}
                   milestones={activePlan.milestones}
-                  onAdd={addMilestone}
-                  onUpdate={updateMilestone}
-                  onDelete={deleteMilestone}
                   onToggleDone={(milestoneId, done) => {
                     updateMilestone(milestoneId, { status: done ? "Done" : "Not started" });
                   }}
                 />
 
-                <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <Button variant="secondary" onClick={() => setTab("mindMap")}>
                     Back to Mind Map
                   </Button>
-                  <Link
-                    href="/marketplace"
-                    className={cn(
-                      "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold",
-                      "bg-teal-600 text-white hover:bg-teal-700",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
-                    )}
-                  >
-                    Find opportunities in Marketplace
-                  </Link>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="secondary" onClick={addMilestone}>
+                      Add milestone
+                    </Button>
+                    <Link
+                      href="/marketplace"
+                      className={cn(
+                        "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold",
+                        "bg-teal-600 text-white hover:bg-teal-700",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+                      )}
+                    >
+                      Find opportunities in Marketplace
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Kept for parity with previous behavior; delete action still exists in state layer for future UI controls */}
+                <div className="sr-only" aria-hidden="true">
+                  <button onClick={() => deleteMilestone("noop")} />
                 </div>
               </Card>
             )}
