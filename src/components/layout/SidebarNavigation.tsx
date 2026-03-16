@@ -11,6 +11,12 @@ export type SidebarNavigationProps = {
   items: NavItem[];
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * The pathname used to determine which nav item is active.
+   * When provided from a Server Component, it guarantees the server + client
+   * initial render compute the same active state (prevents hydration mismatch).
+   */
+  pathname?: string;
 };
 
 function normalizePath(path: string | null | undefined) {
@@ -76,8 +82,22 @@ function isNavItemActive(pathnameRaw: string, hrefRaw: string) {
  * PUBLIC_INTERFACE
  * Sidebar navigation (drawer on mobile, fixed on desktop).
  */
-export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationProps) {
-  const pathname = usePathname();
+export function SidebarNavigation({
+  items,
+  isOpen,
+  onClose,
+  pathname: pathnameFromProps,
+}: SidebarNavigationProps) {
+  const clientPathname = usePathname();
+
+  // Hydration-safe: ensure server render and client's first render use the same value.
+  // After mount, we can rely on the client pathname.
+  const [hasMounted, setHasMounted] = React.useState(false);
+  React.useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const pathname = normalizePath(hasMounted ? clientPathname : pathnameFromProps ?? clientPathname);
 
   return (
     <>

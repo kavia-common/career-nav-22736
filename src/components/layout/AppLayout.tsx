@@ -7,13 +7,18 @@ import { PRIMARY_NAV } from "@/lib/navigation";
 
 export type AppLayoutProps = {
   children: React.ReactNode;
+  /**
+   * Pathname provided by a Server Component wrapper (app router) to make
+   * initial sidebar active-state deterministic across SSR and hydration.
+   */
+  pathname?: string;
 };
 
 /**
  * PUBLIC_INTERFACE
  * Global authenticated app layout (sidebar + topbar + main content).
  */
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children, pathname }: AppLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   return (
@@ -23,6 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           items={PRIMARY_NAV}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          pathname={pathname}
         />
 
         {/* Main content column.
