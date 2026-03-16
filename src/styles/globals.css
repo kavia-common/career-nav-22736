@@ -878,23 +878,28 @@ body {
 }
 
 /* Page-level ambient background
-   NOTE: keep this extremely subtle. The shared MultiverseHeading reuses these layers.
-   If the alpha values are too high, the top-of-page area looks like a light teal overlay.
+   NOTE: The shared MultiverseHeading reuses these layers.
+
+   Goal: keep subtle depth + motion WITHOUT tinting the whole header block teal.
+   The particles (cn-particle*) and heading animations (cn-enter-up / cn-subtext-enter)
+   remain unchanged.
 */
 .cn-mv-ambient {
   position: absolute;
   inset: -30%;
+  /* Replace teal wash with a near-neutral cool ambience. */
   background:
-    radial-gradient(circle at 16% 30%, rgba(20, 184, 166, 0.08), transparent 58%),
-    radial-gradient(circle at 74% 34%, rgba(13, 148, 136, 0.06), transparent 62%),
-    radial-gradient(circle at 60% 82%, rgba(45, 212, 191, 0.05), transparent 58%);
+    radial-gradient(circle at 16% 30%, rgba(15, 23, 42, 0.05), transparent 60%),
+    radial-gradient(circle at 74% 34%, rgba(24, 24, 27, 0.03), transparent 62%),
+    radial-gradient(circle at 60% 82%, rgba(15, 23, 42, 0.03), transparent 60%);
   filter: blur(8px);
 }
 
 .cn-mv-grid {
   position: absolute;
   inset: 0;
-  opacity: 0.18;
+  /* Lower opacity so grid doesn't read as an overlay tint. */
+  opacity: 0.10;
   background:
     linear-gradient(to right, rgba(24, 24, 27, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(24, 24, 27, 0.06) 1px, transparent 1px);
@@ -914,14 +919,15 @@ body {
 .cn-mv-glow--a {
   left: -140px;
   top: -90px;
-  background: radial-gradient(circle at 40% 40%, rgba(13, 148, 136, 0.18), transparent 64%);
+  /* Neutralize glow color so the header background stays clean/white. */
+  background: radial-gradient(circle at 40% 40%, rgba(15, 23, 42, 0.08), transparent 64%);
   animation-duration: 10.5s;
 }
 
 .cn-mv-glow--b {
   right: -170px;
   top: -120px;
-  background: radial-gradient(circle at 40% 40%, rgba(20, 184, 166, 0.16), transparent 64%);
+  background: radial-gradient(circle at 40% 40%, rgba(24, 24, 27, 0.06), transparent 64%);
   animation-duration: 11.5s;
   animation-delay: 450ms;
 }
