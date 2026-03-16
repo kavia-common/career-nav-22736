@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "PORT=${PORT:-3000} next dev --hostname 0.0.0.0 --port ${PORT:-3000}",
+    "dev": "PORT=${PORT:-${REACT_APP_PORT:-3000}} next dev --hostname 0.0.0.0 --port ${PORT:-${REACT_APP_PORT:-3000}}",
     "build": "next build",
-    "start": "PORT=${PORT:-3000} next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "start": "PORT=${PORT:-${REACT_APP_PORT:-3000}} next start -H 0.0.0.0 -p ${PORT:-${REACT_APP_PORT:-3000}}",
     "lint": "next lint"
   },
   "dependencies": {
