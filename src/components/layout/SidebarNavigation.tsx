@@ -12,6 +12,45 @@ export type SidebarNavigationProps = {
   onClose: () => void;
 };
 
+function normalizePath(path: string | null | undefined) {
+  if (!path) return "/";
+  // Remove trailing slashes except for root.
+  const cleaned = path.length > 1 ? path.replace(/\/+$/, "") : path;
+  return cleaned || "/";
+}
+
+function startsWithPathSegment(pathname: string, base: string) {
+  // Match `/base` and `/base/...` but not `/baseball`.
+  return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * Determines whether a sidebar nav item should be marked active for the current route.
+ * This supports "route groups" where one nav item represents multiple related pages.
+ */
+function isNavItemActive(pathnameRaw: string, hrefRaw: string) {
+  const pathname = normalizePath(pathnameRaw);
+  const href = normalizePath(hrefRaw);
+
+  if (href === "/") return pathname === "/";
+
+  // Standard exact / nested matching for most items.
+  if (startsWithPathSegment(pathname, href)) return true;
+
+  // Product-specific grouping rules:
+  // - "Build Persona" should remain active across persona onboarding sub-steps.
+  // - "Draft Persona" should be active for all persona pages (index, analyze, draft).
+  if (href === "/journey/build-profile") {
+    return startsWithPathSegment(pathname, "/journey/build-profile") || startsWithPathSegment(pathname, "/journey/persona");
+  }
+
+  if (href === "/journey/persona/draft") {
+    return startsWithPathSegment(pathname, "/journey/persona");
+  }
+
+  return false;
+}
+
 /**
  * PUBLIC_INTERFACE
  * Sidebar navigation (drawer on mobile, fixed on desktop).
@@ -54,7 +93,7 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
               </p>
             </div>
             <button
-              className="rounded-lg p-2 text-white/90 hover:bg-white/10 lg:hidden"
+              className="rounded-lg p-2 text-white/90 hover:bg-white/10 transition-colors lg:hidden"
               onClick={onClose}
               aria-label="Close navigation"
               type="button"
@@ -66,15 +105,14 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
           <nav className="flex-1 overflow-y-auto px-3 pb-5">
             <ul className="space-y-1">
               {items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(item.href + "/"));
+                const isActive = isNavItemActive(pathname, item.href);
 
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       onClick={onClose}
+                      aria-current={isActive ? "page" : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm",
                         // Hover interactions (slide + background)
@@ -88,7 +126,7 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
                       {/* Active indicator bar */}
                       <span
                         className={cn(
-                          "absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full transition-opacity",
+                          "absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full transition-opacity duration-200",
                           isActive ? "bg-[#14B8A6] opacity-100" : "opacity-0"
                         )}
                         aria-hidden="true"
