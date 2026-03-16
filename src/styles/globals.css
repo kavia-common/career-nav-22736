@@ -887,24 +887,27 @@ body {
 .cn-mv-ambient {
   position: absolute;
   inset: -30%;
-  /* Replace teal wash with a near-neutral cool ambience. */
-  background:
-    radial-gradient(circle at 16% 30%, rgba(15, 23, 42, 0.05), transparent 60%),
-    radial-gradient(circle at 74% 34%, rgba(24, 24, 27, 0.03), transparent 62%),
-    radial-gradient(circle at 60% 82%, rgba(15, 23, 42, 0.03), transparent 60%);
-  filter: blur(8px);
+  /*
+    Header ambient layers (used by MultiverseHeading)
+
+    The reported issue is a remaining dark/black overlay/shadow across the header block.
+    That “tint” comes from these background layers (ambient + grid + glows).
+
+    Fix: keep the structure (so particles and title animations remain untouched) but
+    make the ambient layers visually transparent so the header reads as clean/white.
+  */
+  background: transparent;
+  filter: none;
+  opacity: 0;
 }
 
 .cn-mv-grid {
   position: absolute;
   inset: 0;
-  /* Lower opacity so grid doesn't read as an overlay tint. */
-  opacity: 0.10;
-  background:
-    linear-gradient(to right, rgba(24, 24, 27, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(24, 24, 27, 0.06) 1px, transparent 1px);
-  background-size: 58px 58px;
-  mask-image: radial-gradient(circle at 50% 40%, black 35%, transparent 72%);
+  /* Keep element for layout/stacking compatibility, but remove visual overlay. */
+  background: transparent;
+  mask-image: none;
+  opacity: 0;
 }
 
 .cn-mv-glow {
@@ -912,22 +915,26 @@ body {
   width: 460px;
   height: 460px;
   border-radius: 9999px;
-  filter: blur(22px);
+  /*
+    Keep animation definition to avoid unexpected CSS regressions, but make the glows
+    effectively invisible to eliminate the perceived dark shadow band.
+  */
+  filter: none;
+  opacity: 0;
   animation: cn-mv-glow 9.5s ease-in-out infinite;
 }
 
 .cn-mv-glow--a {
   left: -140px;
   top: -90px;
-  /* Neutralize glow color so the header background stays clean/white. */
-  background: radial-gradient(circle at 40% 40%, rgba(15, 23, 42, 0.08), transparent 64%);
+  background: transparent;
   animation-duration: 10.5s;
 }
 
 .cn-mv-glow--b {
   right: -170px;
   top: -120px;
-  background: radial-gradient(circle at 40% 40%, rgba(24, 24, 27, 0.06), transparent 64%);
+  background: transparent;
   animation-duration: 11.5s;
   animation-delay: 450ms;
 }
