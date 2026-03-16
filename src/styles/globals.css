@@ -289,6 +289,14 @@ body {
   border-radius: 9999px;
   background: rgba(13, 148, 136, 0.28);
   box-shadow: 0 0 18px rgba(13, 148, 136, 0.18);
+  /* Ensure particles remain visible when placed behind text layers. */
+  opacity: 1;
+}
+
+/* Utility: force a predictable stacking context when needed. */
+.cn-stack {
+  position: relative;
+  isolation: isolate;
 }
 
 /* Build Persona heading: entrance + typewriter */

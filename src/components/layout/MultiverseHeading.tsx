@@ -92,9 +92,14 @@ export function MultiverseHeading({
 }: MultiverseHeadingProps) {
   return (
     <div className={cn("relative mb-6", className)}>
+      {/* IMPORTANT LAYERING NOTE:
+          - Ambient background should be the farthest back.
+          - Particles should be visible above the ambient but behind the text.
+          - Avoid negative z-index for particles because it can push them behind the
+            page/background depending on stacking contexts. */}
       {showAmbient && (
         <div
-          className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-[180px] overflow-hidden"
+          className="pointer-events-none absolute inset-x-0 -top-10 z-0 h-[180px] overflow-hidden"
           aria-hidden="true"
         >
           <div className="cn-mv-ambient" />
@@ -105,9 +110,10 @@ export function MultiverseHeading({
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="relative min-w-0">
+        {/* Create a local stacking context so z-index values behave consistently. */}
+        <div className="relative z-10 min-w-0">
           {showParticles && (
-            <div className="pointer-events-none absolute -inset-x-6 -top-5 -bottom-4 -z-10">
+            <div className="pointer-events-none absolute -inset-x-6 -top-5 -bottom-4 z-0">
               {getCareerMultiverseParticleField().map((p) => (
                 <Particle key={p.key} style={p.style} />
               ))}
@@ -117,7 +123,7 @@ export function MultiverseHeading({
           <h1
             className={cn(
               // Base title hover shimmer/glow is already defined in globals.css under .cn-page-title
-              "cn-page-title cn-page-title--teal text-3xl font-bold tracking-tight",
+              "relative z-10 cn-page-title cn-page-title--teal text-3xl font-bold tracking-tight",
               "cn-enter-up",
               titleClassName
             )}
@@ -128,7 +134,7 @@ export function MultiverseHeading({
           {subtitle && (
             <p
               className={cn(
-                "mt-1 text-sm cn-page-subtitle",
+                "relative z-10 mt-1 text-sm cn-page-subtitle",
                 "cn-subtext-enter",
                 subtitleClassName
               )}
