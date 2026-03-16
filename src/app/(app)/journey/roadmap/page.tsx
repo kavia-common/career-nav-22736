@@ -1860,6 +1860,29 @@ export default function RoadmapJourneyPage() {
 
   return (
     <div className="relative">
+      {/* 3-layer page background: image (fixed) + dark overlay + content */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-20">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: "url(/assets/im.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            // Ensure the background stays fixed while the page content scrolls
+            backgroundAttachment: "fixed",
+            // Subtle image presence per requirements (10%–18%)
+            opacity: 0.14
+          }}
+        />
+      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10"
+        // Dark overlay layer to reduce brightness and keep UI readable
+        style={{ background: "rgba(0,0,0,0.6)" }}
+      />
+
       <RoadmapAmbientBackground />
 
       <PageHeader
