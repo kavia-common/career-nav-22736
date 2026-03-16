@@ -1960,17 +1960,6 @@ export default function RoadmapJourneyPage() {
             >
               Back to Multiverse
             </Button>
-            <Link
-              href="/marketplace"
-              className={cn(
-                "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium",
-                "bg-white text-zinc-900 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50",
-                "transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_18px_30px_rgba(20,184,166,0.18)] hover:scale-[1.02]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
-              )}
-            >
-              Marketplace
-            </Link>
           </div>
         }
       />
