@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import type { NavItem } from "@/lib/navigation";
@@ -108,10 +109,24 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between gap-2 p-5">
             <div className="min-w-0">
-              <p className="text-sm font-semibold tracking-wide text-white">
-                Career Navigator
-              </p>
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/assets/logo_mark_white.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={26}
+                  height={26}
+                  className="block h-[26px] w-[26px] flex-none"
+                  // Slight drop shadow helps keep the mark visible if the teal varies.
+                  style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.18))" }}
+                  priority
+                />
+                <p className="truncate text-sm font-semibold tracking-wide text-white">
+                  Career Navigator
+                </p>
+              </div>
             </div>
+
             <button
               className="rounded-lg p-2 text-white/90 hover:bg-white/10 transition-colors lg:hidden"
               onClick={onClose}
