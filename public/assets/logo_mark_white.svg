@@ -1,13 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Career Navigator logo mark">
   <!--
-    Monochrome white mark intended for teal/dark sidebar backgrounds.
-    Derived from the provided screenshot: circular mark + orbit arc + compass needle.
+    Two-tone / knockout variant for teal sidebar backgrounds.
+    - White body + orbit remain visible on teal.
+    - Inner details are rendered as teal shapes to simulate negative-space cutouts.
+    NOTE: This asset is intended specifically for the sidebar color: #0F766E.
   -->
   <g fill="none" fill-rule="evenodd">
-    <!-- Main circle -->
-    <circle cx="64" cy="64" r="44" fill="#FFFFFF"/>
+    <!-- White base circle -->
+    <circle cx="64" cy="64" r="44" fill="#FFFFFF" />
 
-    <!-- Orbit arc (thick stroke) -->
+    <!-- Orbit arc (white stroke) -->
     <path
       d="M30 54a40 40 0 0 1 78 6"
       stroke="#FFFFFF"
@@ -15,19 +17,15 @@
       stroke-linecap="round"
     />
 
-    <!-- Compass needle (diamond/arrow shape) -->
-    <path
-      d="M78 34L44 76l20-8 20 8z"
-      fill="#0F766E"
-      opacity="0"
-    />
-    <!-- The needle should be white; we draw it explicitly in white -->
-    <path
-      d="M80.5 36.5 45.5 79.5 64 72.2 82.5 79.5z"
-      fill="#FFFFFF"
-    />
+    <!-- Knockout / cutout details (filled with sidebar teal) -->
 
-    <!-- Center dot -->
-    <circle cx="64" cy="64" r="7.5" fill="#FFFFFF"/>
+    <!-- Center cutout (replaces previous white dot) -->
+    <circle cx="64" cy="64" r="7.5" fill="#0F766E" />
+
+    <!-- Compass needle cutout (diamond/arrow) -->
+    <path d="M80.5 36.5 45.5 79.5 64 72.2 82.5 79.5z" fill="#0F766E" />
+
+    <!-- Small highlight cutout inside the needle for definition -->
+    <path d="M61.2 65.9 72.1 47.9 66.1 66.7z" fill="#0F766E" opacity="0.55" />
   </g>
 </svg>

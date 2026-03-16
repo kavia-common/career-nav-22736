@@ -114,9 +114,9 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
                   src="/assets/logo_mark_white.svg"
                   alt=""
                   aria-hidden="true"
-                  width={26}
-                  height={26}
-                  className="block h-[26px] w-[26px] flex-none"
+                  width={28}
+                  height={28}
+                  className="block h-[28px] w-[28px] flex-none"
                   // Slight drop shadow helps keep the mark visible if the teal varies.
                   style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.18))" }}
                   priority
