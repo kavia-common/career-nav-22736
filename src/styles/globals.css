@@ -877,15 +877,18 @@ body {
   }
 }
 
-/* Page-level ambient background */
+/* Page-level ambient background
+   NOTE: keep this extremely subtle. The shared MultiverseHeading reuses these layers.
+   If the alpha values are too high, the top-of-page area looks like a light teal overlay.
+*/
 .cn-mv-ambient {
   position: absolute;
   inset: -30%;
   background:
-    radial-gradient(circle at 16% 30%, rgba(20, 184, 166, 0.22), transparent 56%),
-    radial-gradient(circle at 74% 34%, rgba(13, 148, 136, 0.14), transparent 60%),
-    radial-gradient(circle at 60% 82%, rgba(45, 212, 191, 0.12), transparent 55%);
-  filter: blur(6px);
+    radial-gradient(circle at 16% 30%, rgba(20, 184, 166, 0.08), transparent 58%),
+    radial-gradient(circle at 74% 34%, rgba(13, 148, 136, 0.06), transparent 62%),
+    radial-gradient(circle at 60% 82%, rgba(45, 212, 191, 0.05), transparent 58%);
+  filter: blur(8px);
 }
 
 .cn-mv-grid {
