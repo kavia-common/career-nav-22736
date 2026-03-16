@@ -1064,6 +1064,55 @@ body {
    Career Strategy Workspace: CTA + tab/page transitions
    ------------------------------ */
 
+/* ------------------------------
+   Roadmap: micro-interactions helpers (used in /journey/roadmap)
+   ------------------------------ */
+
+/* Gentle glow for interactive surfaces (cards, chips) */
+.cn-roadmap-glowHover {
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    filter 220ms ease;
+}
+
+.cn-roadmap-glowHover:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 184, 166, 0.25);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.18),
+    0 0 22px rgba(20, 184, 166, 0.14);
+  filter: drop-shadow(0 12px 20px rgba(20, 184, 166, 0.10));
+}
+
+/* Button hover polish (scale + glow) */
+.cn-roadmap-btnHover {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    filter 200ms ease;
+}
+
+.cn-roadmap-btnHover:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: drop-shadow(0 14px 24px rgba(20, 184, 166, 0.18));
+}
+
+/* Reduced motion: keep UI stable */
+@media (prefers-reduced-motion: reduce) {
+  .cn-roadmap-glowHover,
+  .cn-roadmap-btnHover {
+    transition: none !important;
+  }
+
+  .cn-roadmap-glowHover:hover,
+  .cn-roadmap-btnHover:hover {
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
 @keyframes cn-csw-page-enter {
   0% {
     opacity: 0;
