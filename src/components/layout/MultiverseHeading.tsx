@@ -41,6 +41,37 @@ function Particle({
 }
 
 /**
+ * Build the exact same particle layout used on the Career Multiverse page heading:
+ * - 12 small floating dots
+ * - deterministic positions/sizes/durations/delays (no randomness)
+ *
+ * Keeping this logic in the shared heading component ensures Draft Persona, Skill Validation,
+ * Roadmap, and Marketplace match the Career Multiverse heading identically.
+ */
+function getCareerMultiverseParticleField() {
+  return Array.from({ length: 12 }).map((_, i) => {
+    const left = (i * 7 + (i % 3) * 5) % 100;
+    const top = (i % 4) * 20 + 10;
+    const size = 4 + (i % 4) * 2;
+    const duration = 7 + (i % 5) * 1.4;
+    const delay = (i % 6) * 0.35;
+
+    return {
+      key: i,
+      style: {
+        position: "absolute",
+        left: `${left}%`,
+        top: `${top}%`,
+        width: `${size}px`,
+        height: `${size}px`,
+        ["--cn-particle-duration" as any]: `${duration}s`,
+        ["--cn-particle-delay" as any]: `${delay}s`
+      } as React.CSSProperties
+    };
+  });
+}
+
+/**
  * PUBLIC_INTERFACE
  * MultiverseHeading
  *
@@ -77,46 +108,9 @@ export function MultiverseHeading({
         <div className="relative min-w-0">
           {showParticles && (
             <div className="pointer-events-none absolute -inset-x-6 -top-5 -bottom-4 -z-10">
-              <Particle
-                className="left-2 top-6 h-1.5 w-1.5"
-                style={
-                  {
-                    position: "absolute",
-                    ["--cn-particle-duration" as any]: "8.5s",
-                    ["--cn-particle-delay" as any]: "0.0s"
-                  } as React.CSSProperties
-                }
-              />
-              <Particle
-                className="left-24 top-2 h-1 w-1 opacity-70"
-                style={
-                  {
-                    position: "absolute",
-                    ["--cn-particle-duration" as any]: "10s",
-                    ["--cn-particle-delay" as any]: "0.35s"
-                  } as React.CSSProperties
-                }
-              />
-              <Particle
-                className="right-10 top-7 h-2 w-2 opacity-80"
-                style={
-                  {
-                    position: "absolute",
-                    ["--cn-particle-duration" as any]: "9.25s",
-                    ["--cn-particle-delay" as any]: "0.15s"
-                  } as React.CSSProperties
-                }
-              />
-              <Particle
-                className="right-28 bottom-4 h-1.5 w-1.5 opacity-70"
-                style={
-                  {
-                    position: "absolute",
-                    ["--cn-particle-duration" as any]: "11s",
-                    ["--cn-particle-delay" as any]: "0.55s"
-                  } as React.CSSProperties
-                }
-              />
+              {getCareerMultiverseParticleField().map((p) => (
+                <Particle key={p.key} style={p.style} />
+              ))}
             </div>
           )}
 
