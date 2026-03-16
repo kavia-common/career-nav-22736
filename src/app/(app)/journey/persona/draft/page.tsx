@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { MultiverseHeading } from "@/components/layout/MultiverseHeading";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressStepper, type Step } from "@/components/ui/ProgressStepper";
@@ -454,9 +454,11 @@ export default function DraftPersonaPage() {
         mounted ? "opacity-100" : "opacity-0"
       ].join(" ")}
     >
-      <PageHeader
+      <MultiverseHeading
         title="Draft Persona"
         subtitle="Review your AI-generated persona, make edits, then confirm to validate skills."
+        showAmbient={true}
+        showParticles={true}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm">

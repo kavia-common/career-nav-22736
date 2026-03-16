@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { MultiverseHeading } from "@/components/layout/MultiverseHeading";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -186,9 +186,11 @@ export default function SkillValidationPage() {
 
   return (
     <div className="relative">
-      <PageHeader
+      <MultiverseHeading
         title="Skill Validation"
         subtitle="An AI interview-style assessment to calibrate your current strengths."
+        showAmbient={true}
+        showParticles={true}
       />
 
       {/* Ambient background */}

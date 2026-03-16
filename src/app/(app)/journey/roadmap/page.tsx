@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { MultiverseHeading } from "@/components/layout/MultiverseHeading";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
@@ -1885,9 +1885,11 @@ export default function RoadmapJourneyPage() {
 
       <RoadmapAmbientBackground />
 
-      <PageHeader
+      <MultiverseHeading
         title="Roadmap"
         subtitle="Turn selected roles into a plan: mind map + pathway milestones."
+        showAmbient={true}
+        showParticles={true}
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
