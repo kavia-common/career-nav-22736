@@ -1,0 +1,9 @@
+Sidebar logo asset
+
+File: sidebar-logo.png
+Source: attachments/Screenshot_2026-03-16_at_2.59.58_PM.png (provided by user)
+Usage: Rendered in the SidebarNavigation header via /assets/sidebar-logo.png
+
+Notes:
+- Optimized for display on the teal sidebar background.
+- If replaced in the future, keep a similar square aspect ratio for consistent sizing.

@@ -111,14 +111,16 @@ export function SidebarNavigation({ items, isOpen, onClose }: SidebarNavigationP
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <Image
-                  src="/assets/logo_mark_white.svg"
-                  alt=""
-                  aria-hidden="true"
-                  width={28}
-                  height={28}
-                  className="block h-[28px] w-[28px] flex-none"
-                  // Slight drop shadow helps keep the mark visible if the teal varies.
-                  style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.18))" }}
+                  src="/assets/sidebar-logo.png"
+                  alt="Career Navigator"
+                  width={40}
+                  height={40}
+                  className="block h-[32px] w-[32px] flex-none rounded-[10px]"
+                  // Improve perceived contrast/sharpness on teal background while staying subtle.
+                  style={{
+                    filter:
+                      "drop-shadow(0 1px 1px rgba(0,0,0,0.22)) drop-shadow(0 0 10px rgba(0,0,0,0.12))",
+                  }}
                   priority
                 />
                 <p className="truncate text-sm font-semibold tracking-wide text-white">
