@@ -516,73 +516,198 @@ function mixToWhite(rgb: string, t: number) {
   return `${rr} ${gg} ${bb}`;
 }
 
-function buildCategories(): MindMapCategory[] {
-  // Authoritative categories + example sub nodes from requirements.
-  // Tooltip fields match: Skill name / Status / Suggested action.
+function buildCategoriesForRole(args: { roleTitle: string; roleId: string }): MindMapCategory[] {
+  /**
+   * Build role-specific Mind Map categories/sub-nodes.
+   *
+   * Requirements (user_input_ref) demand:
+   * - Mind Map re-renders immediately when user selects a different role
+   * - Nodes/sub-nodes should reflect the selected role
+   * - Example nodes for Product Manager: Core Skills (Product Strategy, User Research, Data Analysis),
+   *   Proof Projects (Case Study, Portfolio Artifact), Market Fit (Target Companies, Technology Industry)
+   *
+   * Implementation notes:
+   * - We keep the same 7 high-level categories for visual consistency, but vary the sub-node labels/actions per role.
+   * - “Market Fit” sub-nodes include role-specific industry wording (e.g., Technology Industry).
+   */
+  const { roleTitle, roleId } = args;
+
+  const isPM = /product manager/i.test(roleTitle) || roleId === "n-pm";
+  const isEM = /engineering manager/i.test(roleTitle) || roleId === "n-em";
+  const isCTO = /cto/i.test(roleTitle) || roleId === "n-cto";
+
   const cats: Array<{ id: string; label: string; colorRgb: string; subs: Array<[string, SkillStatus, string]> }> = [
     {
       id: "core-skills",
       label: "Core Skills",
       colorRgb: "59 130 246", // Blue
-      subs: [
-        ["Product Strategy", "In progress", "Draft a 1-page strategy + north star metric for a product you know."],
-        ["User Research", "Gap", "Run 5 user interviews and synthesize themes into insights."],
-        ["Data Analysis", "Strong", "Create a simple KPI dashboard and explain tradeoffs/decisions."]
-      ]
+      subs: isPM
+        ? [
+            ["Product Strategy", "In progress", "Draft a 1-page product strategy with a north star metric."],
+            ["User Research", "Gap", "Run 5 user interviews and synthesize into actionable insights."],
+            ["Data Analysis", "Strong", "Build a KPI dashboard and explain decision tradeoffs."]
+          ]
+        : isEM
+          ? [
+              ["People Leadership", "In progress", "Run 1:1s with an agenda; practice coaching with feedback."],
+              ["Execution & Delivery", "Gap", "Own a quarterly delivery plan and manage risks proactively."],
+              ["Technical Credibility", "In progress", "Write an architecture decision record (ADR) for a real system."]
+            ]
+          : isCTO
+            ? [
+                ["Org Strategy", "In progress", "Define a 12-month engineering strategy aligned to company goals."],
+                ["Architecture", "Gap", "Design a scalable system; document tradeoffs and constraints."],
+                ["Governance", "In progress", "Establish standards: review process, quality gates, and metrics."]
+              ]
+            : [
+                ["Role Foundations", "In progress", "List top 10 competencies and map them to evidence you can show."],
+                ["Domain Knowledge", "Gap", "Pick a niche and write 10 insights and 3 contrarian points."],
+                ["Analytical Rigor", "In progress", "Create a simple model/dashboard to support a decision."]
+              ]
     },
     {
       id: "proof-projects",
       label: "Proof Projects",
       colorRgb: "20 184 166", // Teal
-      subs: [
-        ["Case Study", "In progress", "Write a case study: problem → approach → outcome (with numbers)."],
-        ["Portfolio Artifact", "Gap", "Ship a tangible artifact (deck, spec, demo) aligned to target role."]
-      ]
+      subs: isPM
+        ? [
+            ["Case Study", "In progress", "Write a case study: problem → approach → outcome (with numbers)."],
+            ["Portfolio Artifact", "Gap", "Ship a spec/deck/demo that signals PM craft."]
+          ]
+        : isEM
+          ? [
+              ["Team Impact Artifact", "In progress", "Document an initiative: goals, plan, execution, outcomes."],
+              ["Process Improvement", "Gap", "Run a retro and implement 2 durable process changes."]
+            ]
+          : isCTO
+            ? [
+                ["Strategic Narrative", "In progress", "Publish a concise strategy memo (vision, bets, risks)."],
+                ["Operating Model", "Gap", "Create an org + operating cadence plan (OKRs, reviews, hiring)."]
+              ]
+            : [
+                ["Proof Project", "In progress", "Build a small project that demonstrates key job competencies."],
+                ["Portfolio Artifact", "Gap", "Package the work into a clear artifact that recruiters can scan."]
+              ]
     },
     {
       id: "market-fit",
       label: "Market Fit",
       colorRgb: "34 197 94", // Green
-      subs: [
-        ["Target Companies", "In progress", "Make a shortlist of 15 and map role requirements."],
-        ["Industry Knowledge", "Gap", "Pick a niche; write 10 insights and 3 contrarian takes."]
-      ]
+      subs: isPM
+        ? [
+            ["Target Companies", "In progress", "Shortlist 15 and map PM requirements to your evidence."],
+            ["Technology Industry", "Gap", "Choose a tech niche; study patterns, metrics, and competitor moves."]
+          ]
+        : isEM
+          ? [
+              ["Target Companies", "In progress", "Shortlist 15 teams/orgs; map expectations for EM scope."],
+              ["Engineering Context", "Gap", "Study how your target companies structure teams and delivery."]
+            ]
+          : isCTO
+            ? [
+                ["Target Companies", "In progress", "Shortlist 10; map CTO mandate (growth vs efficiency vs scale)."],
+                ["Board/Exec Context", "Gap", "Research what exec stakeholders care about in that market."]
+              ]
+            : [
+                ["Target Companies", "In progress", "Shortlist 15 and extract common requirement themes."],
+                ["Industry Knowledge", "Gap", "Pick a niche; write 10 insights and 3 contrarian takes."]
+              ]
     },
     {
       id: "interview",
       label: "Interview Readiness",
       colorRgb: "168 85 247", // Purple
-      subs: [
-        ["Mock Interviews", "In progress", "Run weekly mocks; record and score yourself."],
-        ["Role Prompts", "Gap", "Build a prompt bank and practice under timebox."]
-      ]
+      subs: isPM
+        ? [
+            ["Product Sense", "In progress", "Practice 2 prompts/week; write structured answers."],
+            ["Execution", "Gap", "Practice prioritization and tradeoff questions under timebox."]
+          ]
+        : isEM
+          ? [
+              ["Leadership Scenarios", "In progress", "Practice conflict/feedback scenarios; document STAR answers."],
+              ["System Design", "Gap", "Do 1 system design per week; review with a peer."]
+            ]
+          : isCTO
+            ? [
+                ["Exec Communication", "In progress", "Practice concise narratives for strategy, risk, and resourcing."],
+                ["Org/Scale Scenarios", "Gap", "Prepare playbooks for hiring, reorgs, incidents, and pivots."]
+              ]
+            : [
+                ["Mock Interviews", "In progress", "Run weekly mocks; record and score yourself."],
+                ["Role Prompts", "Gap", "Build a prompt bank and practice under timebox."]
+              ]
     },
     {
       id: "brand",
       label: "Personal Brand",
       colorRgb: "239 68 68", // Red
-      subs: [
-        ["LinkedIn", "In progress", "Align headline + featured section to target role signals."],
-        ["Story", "Gap", "Write your story: who you help, how, proof, and what you want next."]
-      ]
+      subs: isPM
+        ? [
+            ["LinkedIn", "In progress", "Align headline/featured to PM outcomes + artifacts."],
+            ["Story", "Gap", "Write your product narrative: user problem → impact → craft."]
+          ]
+        : isEM
+          ? [
+              ["Leadership Narrative", "In progress", "Clarify your leadership philosophy with examples."],
+              ["Manager Story", "Gap", "Write a story: team outcomes, coaching wins, and delivery impact."]
+            ]
+          : isCTO
+            ? [
+                ["Executive Presence", "In progress", "Clarify your operating principles and decision framework."],
+                ["Vision", "Gap", "Write a crisp tech vision tied to business outcomes."]
+              ]
+            : [
+                ["LinkedIn", "In progress", "Align headline + featured section to target role signals."],
+                ["Story", "Gap", "Write your story: who you help, how, proof, and what you want next."]
+              ]
     },
     {
       id: "gaps",
       label: "Experience Gaps",
       colorRgb: "249 115 22", // Orange
-      subs: [
-        ["Scope & Ownership", "Gap", "Lead one end-to-end slice with clear outcomes and ownership."],
-        ["Decision Making", "In progress", "Log decisions + tradeoffs; review outcomes weekly."]
-      ]
+      subs: isPM
+        ? [
+            ["Cross-functional Leadership", "Gap", "Lead a small initiative across design/eng; track outcomes."],
+            ["Go-to-market Thinking", "In progress", "Draft positioning + launch plan for a sample feature."]
+          ]
+        : isEM
+          ? [
+              ["Scope & Ownership", "Gap", "Own a multi-sprint initiative with clear outcomes and ownership."],
+              ["Hiring/Performance", "In progress", "Practice interview loops; calibrate a rubric and feedback."]
+            ]
+          : isCTO
+            ? [
+                ["Capital Allocation", "Gap", "Practice resourcing tradeoffs across bets; justify with metrics."],
+                ["Risk Management", "In progress", "Create an incident/risk register and review cadence."]
+              ]
+            : [
+                ["Scope & Ownership", "Gap", "Lead one end-to-end slice with clear outcomes and ownership."],
+                ["Decision Making", "In progress", "Log decisions + tradeoffs; review outcomes weekly."]
+              ]
     },
     {
       id: "network",
       label: "Network",
       colorRgb: "234 179 8", // Yellow
-      subs: [
-        ["Mentors", "Gap", "Identify 2 mentors; set monthly feedback checkpoints."],
-        ["Peers", "In progress", "Join a peer group; share progress biweekly."]
-      ]
+      subs: isPM
+        ? [
+            ["PM Mentors", "Gap", "Identify 2 PM mentors; set monthly feedback checkpoints."],
+            ["Peers", "In progress", "Join a PM peer group; share progress biweekly."]
+          ]
+        : isEM
+          ? [
+              ["EM Mentors", "Gap", "Find 2 EM mentors; review people/exec scenarios monthly."],
+              ["Peers", "In progress", "Join an EM community; trade playbooks biweekly."]
+            ]
+          : isCTO
+            ? [
+                ["Exec Mentors", "Gap", "Find 1–2 exec mentors; review strategy/org decisions monthly."],
+                ["Operator Peers", "In progress", "Join a CTO/operator circle; share metrics and lessons."]
+              ]
+            : [
+                ["Mentors", "Gap", "Identify 2 mentors; set monthly feedback checkpoints."],
+                ["Peers", "In progress", "Join a peer group; share progress biweekly."]
+              ]
     }
   ];
 
@@ -592,7 +717,7 @@ function buildCategories(): MindMapCategory[] {
     colorRgb: c.colorRgb,
     subColorRgb: mixToWhite(c.colorRgb, 0.22),
     subs: c.subs.map(([label, status, action], idx) => ({
-      id: `${c.id}_sub_${idx}`,
+      id: `${c.id}_${roleId}_sub_${idx}`,
       label,
       status,
       action
@@ -920,17 +1045,44 @@ function MindMapNodeView(props: {
   );
 }
 
-function MindMapCanvas3Layer() {
+function MindMapCanvas3Layer(props: { selectedRole: RolePlan; fadeMs: number }) {
+  const { selectedRole, fadeMs } = props;
+
   const reducedMotion = usePrefersReducedMotion();
   const ref = React.useRef<HTMLDivElement | null>(null);
 
   const [size, setSize] = React.useState({ w: 1000, h: 640 });
 
-  const categories = React.useMemo(() => buildCategories(), []);
+  const categories = React.useMemo(
+    () => buildCategoriesForRole({ roleTitle: selectedRole.title, roleId: selectedRole.roleId }),
+    [selectedRole.roleId, selectedRole.title]
+  );
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
 
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
+
+  // Fade transition when switching roles (and reset expanded/hover state so nodes match the new role immediately).
+  const [phase, setPhase] = React.useState<"in" | "out">("in");
+  React.useEffect(() => {
+    if (reducedMotion) {
+      setExpanded(new Set());
+      setHoveredId(null);
+      setCursor(null);
+      setPhase("in");
+      return;
+    }
+
+    setPhase("out");
+    const t1 = window.setTimeout(() => {
+      setExpanded(new Set());
+      setHoveredId(null);
+      setCursor(null);
+      setPhase("in");
+    }, Math.max(0, Math.floor(fadeMs / 2)));
+
+    return () => window.clearTimeout(t1);
+  }, [selectedRole.roleId, reducedMotion, fadeMs]);
 
   React.useEffect(() => {
     if (!ref.current) return;
@@ -1041,7 +1193,9 @@ function MindMapCanvas3Layer() {
       ref={ref}
       className={cn("relative overflow-hidden rounded-2xl ring-1 ring-inset ring-white/10 min-h-[680px]")}
       style={{
-        background: "radial-gradient(circle at 45% 40%, rgba(15, 35, 70, 0.68), rgba(7, 11, 20, 1) 68%)"
+        background: "radial-gradient(circle at 45% 40%, rgba(15, 35, 70, 0.68), rgba(7, 11, 20, 1) 68%)",
+        opacity: phase === "out" ? 0 : 1,
+        transition: reducedMotion ? undefined : `opacity ${fadeMs}ms ease`
       }}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
@@ -1177,6 +1331,10 @@ function MindMapCanvas3Layer() {
           Mind Map
         </span>
 
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 backdrop-blur">
+          Target Role: <span className="font-bold text-white/90">{selectedRole.title}</span>
+        </span>
+
         <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 backdrop-blur">
           Click a category to expand
         </span>
@@ -1217,7 +1375,7 @@ export default function RoadmapJourneyPage() {
   const [tab, setTab] = React.useState<RoadmapTab>("mindMap");
   const [cartRoleIds, setCartRoleIds] = React.useState<string[]>([]);
   const [plans, setPlans] = React.useState<RolePlan[]>([]);
-  const [activeRoleId, setActiveRoleId] = React.useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const ids = safeParseStringArray(window.localStorage.getItem(ROLE_CART_KEY));
@@ -1229,19 +1387,20 @@ export default function RoadmapJourneyPage() {
     const nextPlans = ids.map((id) => restoredPlansById.get(id) ?? seedRolePlan(id));
     setPlans(nextPlans);
 
-    const nextActive = restored.activeRoleId && ids.includes(restored.activeRoleId) ? restored.activeRoleId : ids[0] ?? null;
-    setActiveRoleId(nextActive);
+    const nextSelected = restored.activeRoleId && ids.includes(restored.activeRoleId) ? restored.activeRoleId : ids[0] ?? null;
+    setSelectedRole(nextSelected);
   }, []);
 
   React.useEffect(() => {
     if (plans.length === 0) return;
-    persistRoadmapState({ activeRoleId, plans });
-  }, [activeRoleId, plans]);
+    // Keep persisted key name stable for backwards compatibility.
+    persistRoadmapState({ activeRoleId: selectedRole, plans });
+  }, [selectedRole, plans]);
 
   const activePlan = React.useMemo(() => {
-    if (!activeRoleId) return null;
-    return plans.find((p) => p.roleId === activeRoleId) ?? null;
-  }, [plans, activeRoleId]);
+    if (!selectedRole) return null;
+    return plans.find((p) => p.roleId === selectedRole) ?? null;
+  }, [plans, selectedRole]);
 
   const addMilestone = React.useCallback(() => {
     if (!activePlan) return;
@@ -1346,19 +1505,31 @@ export default function RoadmapJourneyPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           <aside className="lg:col-span-4">
             <div className="sticky top-4 space-y-3">
-              <Card title="Selected roles" description="Pick a role to view its pathway. Mind Map is role-agnostic (YOU-centric).">
+              <Card title="Selected roles" description="Pick a role to view its roadmap. The Mind Map updates to match the selected role.">
                 <div className="space-y-2">
                   {plans.map((p) => {
-                    const active = p.roleId === activeRoleId;
+                    const active = p.roleId === selectedRole;
                     return (
                       <button
                         key={p.roleId}
                         type="button"
-                        onClick={() => setActiveRoleId(p.roleId)}
+                        onClick={() => setSelectedRole(p.roleId)}
                         className={cn(
                           "w-full rounded-xl p-3 text-left ring-1 ring-inset transition-all",
-                          active ? "bg-teal-50 ring-teal-200 shadow-sm" : "bg-white ring-zinc-200 hover:ring-teal-200"
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/35",
+                          active
+                            ? "bg-teal-50 ring-teal-200 shadow-[0_10px_26px_rgba(20,184,166,0.16)] translate-y-[-1px]"
+                            : "bg-white ring-zinc-200 hover:ring-teal-200 hover:shadow-sm hover:translate-y-[-1px]"
                         )}
+                        style={
+                          active
+                            ? {
+                                boxShadow:
+                                  "0 0 0 1px rgba(13, 148, 136, 0.30), 0 14px 30px rgba(20, 184, 166, 0.18), 0 0 22px rgba(20, 184, 166, 0.22)"
+                              }
+                            : undefined
+                        }
+                        aria-pressed={active}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -1377,7 +1548,7 @@ export default function RoadmapJourneyPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      const payload = { activeRoleId, plans };
+                      const payload = { selectedRole, plans };
                       navigator.clipboard?.writeText(JSON.stringify(payload, null, 2));
                       alert("Roadmap JSON copied to clipboard (placeholder export).");
                     }}
@@ -1422,10 +1593,18 @@ export default function RoadmapJourneyPage() {
               <Card title="Select a role" description="Choose a role from the left to begin." />
             ) : tab === "mindMap" ? (
               <Card
-                title="Mind Map — YOU → Categories → Expandable Sub-nodes"
-                description="Spacious 3-layer radial mind map. Default shows YOU + categories. Click a category to expand its sub-nodes. Hover for glow + tooltips."
+                title="Mind Map — role-specific nodes"
+                description="Switch roles on the left to regenerate the map. Click a category to expand its sub-nodes. Hover for glow + tooltips."
               >
-                <MindMapCanvas3Layer />
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs font-semibold text-zinc-600">
+                    Selected role: <span className="font-bold text-zinc-900">{activePlan.title}</span>
+                  </div>
+                  <div className="text-xs font-semibold text-zinc-600">
+                    Compatibility: <span className="font-bold text-zinc-900 tabular-nums">{activePlan.compatibility}%</span>
+                  </div>
+                </div>
+                <MindMapCanvas3Layer selectedRole={activePlan} fadeMs={400} />
               </Card>
             ) : (
               <Card title={`Pathway — ${activePlan.title}`} description="A milestone pathway laid out in three stages. Completion is tracked via checkbox/status.">
