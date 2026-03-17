@@ -1,2 +1,2 @@
-{ "working_directory": "/home/kavia/workspace/code-generation",
- "command": "npm install" }
+{ "working_directory": "/home/kavia/workspace/code-generation/career-nav-22736",
+ "command": "npm install && npm run build" }
